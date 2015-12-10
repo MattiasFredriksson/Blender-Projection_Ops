@@ -71,7 +71,7 @@ class MirrorMesh(bpy.types.Operator):
 	cull = True
 	closestOnly = False
 	onlyIntersecting = True
-	displayExecutionTime = True
+	displayExecutionTime = False
 	
 	def execute(self, context):
 		MirrorMesh.bias = self.bias
