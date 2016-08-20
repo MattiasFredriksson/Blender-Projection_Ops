@@ -24,25 +24,13 @@ from queue import Queue
 from bpy.props import *
 from math import *
 
-bl_info = {
-	'name': "Mirror Mesh",
-    'author': "Mattias Fredriksson ",
-    'version': (0, 9, 0),
-    'blender': (2, 70, 0),
-    'location': "Objectmode",
-    'warning': "Contains settings with long execution time",
-    'description': "Mirrors a mesh along the normals of a defined mesh surface. Select the meshes you want to mirror and then make the mirror mesh the active object",
-    'wiki_url': "",
-    'tracker_url': "",
-    'category': 'Mesh'}
-
 
 largeFloat = 10000000
 	
 class MirrorMesh(bpy.types.Operator):
 	bl_idname = "mesh.mirror_mesh_along_mirrormesh_normals"
-	bl_label = "Mirror Mesh"
-	bl_info = "Mirrors a mesh along the normals of a defined mesh surface"
+	bl_label = "Mirror Mesh over Defined Surface"
+	bl_info = "Mirrors selected mesh(es) along the surface normals of the active mesh"
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	
@@ -71,12 +59,12 @@ class MirrorMesh(bpy.types.Operator):
 	cull = True
 	closestOnly = False
 	onlyIntersecting = True
-	displayExecutionTime = False
+	displayExecutionTime = True
 	
 	def execute(self, context):
-		MirrorMesh.bias = self.bias
-		MirrorMesh.biasOne = 1 + self.bias
-		MirrorMesh.biasNeg = -self.bias
+		MirrorMesh.bias = self.biasValue
+		MirrorMesh.biasOne = 1 + self.biasValue
+		MirrorMesh.biasNeg = -self.biasValue
 		MirrorMesh.smoothed = self.mirrorSmooth
 		MirrorMesh.cull = self.cullBackfaces
 		MirrorMesh.closestOnly = self.intersectClosest
@@ -95,12 +83,11 @@ class MirrorMesh(bpy.types.Operator):
 		if MirrorMesh.displayExecutionTime :
 			self.report({'INFO'}, "Executing: mirror_mesh_func")
 		
-		#We add a temporary modifier to triangulate the faces!
+		#Add a temporary modifier to triangulate the faces!
 		tmod = ob_act.modifiers.new(name='tmpTriangulate', type='TRIANGULATE')
 		tmod.quad_method = 'BEAUTY'
-		#We create a bmesh with the modifiers applied and vertices in world space !
+		#Create a bmesh with the modifiers applied and vertices in world space !
 		mMesh = createBmesh(ob_act, context.scene, True)
-		mMesh.normal_update()
 		#Clear tmp modifier
 		ob_act.modifiers.remove(tmod)
 				
@@ -113,7 +100,7 @@ class MirrorMesh(bpy.types.Operator):
 				#Mirror it rawr
 				nonMCount = MirrorMesh.mirrorMesh(mesh, mMesh)
 				
-				#We only create a copy if the 
+				#Create a copy only if the mesh has mirrored vertices
 				if nonMCount < len(mesh.verts) :
 					#Cleanup, move it back into it's local space, flip the inverted normals.
 					mInv = ob.matrix_world.copy()
@@ -204,7 +191,9 @@ class MirrorMesh(bpy.types.Operator):
 			vert = vertQueue.get_nowait()
 			i = vert.index
 			
-			#We need to check that the vert has not already been mirrored again, queueConnected does this but it does not check for duplicated additions
+			#We need to check that the vert has not already been mirrored again,
+			#queueConnected does this but it does not check for duplicated additions.
+			#Note: Duplicate additions occurs if the vert is added to queue but not mirrored yet (could be fixed by adding bool check to searchData).
 			if searchData[i].notMirrored():
 				mData = None
 				#If the function should not search for intersecting data, only mirror verts that has not been mirrored and is connected to a mirrored vert
@@ -375,19 +364,6 @@ def createEmptyMeshCopy(ob, obTag = "_Copy", meshTag = "_CopyMesh", context = No
 def flipNormals(bmesh):
 	for face in bmesh.faces :
 		face.normal_flip()
-	
-# Register the operator
-
-def register():
-	bpy.utils.register_class(MirrorMesh)
-
-
-def unregister():
-	bpy.utils.unregister_class(MirrorMesh)
-
-if __name__ == "__main__":
-		register()
-		
 		
 class SearchData:
 
@@ -426,6 +402,7 @@ class MirrorData:
 		
 	def calcSmoothMirrorVector(self) :
 		norm = self._mirrorTri.verts[0].normal * self._u + self._mirrorTri.verts[1].normal * self._v + self._mirrorTri.verts[2].normal * self._w
+		norm.normalize()
 		return (-2 * self._t)/self._mirrorTri.normal.dot(norm) * norm
 	
 	def calcFlatMirrorVector(self) :
