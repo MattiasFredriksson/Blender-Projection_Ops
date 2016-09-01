@@ -174,21 +174,25 @@ class ProjectionData :
 			bmesh = meshData.bmesh
 			
 			i = 0
-			count = 0 #Keeps track of successfull verts projected
+			count_success = 0 #Keeps track of successfull verts projected
+			count_partial = 0 
 			for vert in bmesh.verts :
-				(face, success) = self.projectVert(vert, meshData.bmeshSource.verts[i], bounds)
-				count += success
+				(face, success, partial_success) = self.projectVert(vert, meshData.bmeshSource.verts[i], bounds)
+				count_partial += partial_success
+				count_success += success
 				i += 1
 			
 			#Finalize the projection by assigning the bmesh into the blender object 
 			#Validate one vert was projected first:
-			if count > 0 :
+			if count_success > 0 :
 				ob = setNamedMesh(bmesh, meshData.ob_name, context.scene, Matrix.Identity(4))
 				#createMesh(meshData.bmeshSource, context.scene)
 				obList.append(ob)
-				nonProjCount = len(bmesh.verts) - count
-				if nonProjCount != 0:
-					self.warning.report({'WARNING'}, "Mesh: %s has %d vertices that did not project succesfully. Validate that the target uv map covers the projection area" %(meshData.ob_name, nonProjCount))
+				blen = len(bmesh.verts)
+				if blen - count_partial != 0:
+					self.warning.report({'WARNING'}, "Mesh: %s has %d vertices that did not project succesfully and are selected. Verify no holes in UV map or try lowering target mesh density" %(meshData.ob_name, blen - count_partial))
+				if blen - count_success != 0:
+					self.warning.report({'WARNING'}, "Mesh: %s has %d vertices that failed to be projected. Validate that the target uv map covers the projection area" %(meshData.ob_name, blen - count_success))
 			#No vert was projected
 			else :
 				self.warning.report({'WARNING'}, "Mesh: %s could not be projected." %meshData.ob_name)
@@ -209,8 +213,16 @@ class ProjectionData :
 		#If intersection occured project it
 		if intersect:
 			vert.co = calcVertProjPoint(face, uvw, uv.z * Setting.scalar.z)
-			return (face, True)
-		return (face, False)
+			vert.select = False
+			return (face, True, True)
+		#If no intersection use the closest tri in the triangle
+		else :
+			(dist, face, edge, uvw) = self.uv_grid.trace_close_uv(uv.xy)
+			vert.select = True
+			if face is None : #No face in partition
+				return (face, False, False)
+			vert.co = calcVertProjPointClamp(face, uvw, uv.z * Setting.scalar.z)
+			return (face, True, False)
 	
 	
 	#Find the bounds of a specified mesh
@@ -299,10 +311,27 @@ def calcVertProjPoint(face, uvw, depth) :
 	depth:	The distance of the vertex from the plane defined by the tri
 	"""
 	depth += Setting.depth
+	co = averageCo(face, uvw)
 	if Setting.smooth :
-		return averageCo(face, uvw) + averageNorm(face, uvw) * depth
+		return co + averageNorm(face, uvw) * depth
 	else :
-		return averageCo(face, uvw) + face.normal * depth
+		return co + face.normal * depth
+def calcVertProjPointClamp(face, uvw, depth) :
+	"""	
+	Calculate the resulting projection point of a vertice being projected onto a face with the barycentric weights
+	face:	The face containing the triangle information
+	uvw:	The barycentric weights, defining how much each tri corner influences the vertex
+	depth:	The distance of the vertex from the plane defined by the tri
+	"""
+	depth += Setting.depth
+	co = averageCo(face, uvw)
+	if Setting.smooth :
+		uvw.x = clamp(uvw.x)
+		uvw.y = clamp(uvw.y)
+		uvw.z = clamp(uvw.z)
+		return co + averageNorm(face, uvw) * depth
+	else :
+		return co + face.normal * depth
 
 def zIsUp(rotMat, camAxis) :
 	""" 

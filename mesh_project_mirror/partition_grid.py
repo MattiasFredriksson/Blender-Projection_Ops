@@ -39,7 +39,7 @@ class GridRect :
 		Returns: True if intersection
 		"""
 		#Check for a separating axis on the triangle!
-		return separatingAxis2D(p0, p1, self.corners) and separatingAxis2D(p1, p2, self.corners) and separatingAxis2D(p2, p1, self.corners)
+		return separatingTriAxis2D(p0, p1, p2, self.corners) and separatingTriAxis2D(p1, p2, p0, self.corners) and separatingTriAxis2D(p2, p0, p1, self.corners)
 	def append(self, obj) :
 		"""
 		Append a object to the contain/intersect list
@@ -64,15 +64,25 @@ class  PartitionGrid2D :
 		self.part_size = Vector((self.size.x / partitions.X, self.size.y / partitions.Y))
 		#Generate partition grid:
 		self.grid = [[GridRect(self.grid_rect(x,y)) for x in range(partitions.X)] for y in range(partitions.Y)] 
-	
+		
 	def calcIndex(self, point) :
 		"""
 		Calculates the grid index from a point
 		"""
-		point = point - self.minP
-		x = floor(point.x / self.part_size.x)
-		y = floor(point.y / self.part_size.y)
-		return Point(x, y)
+		return Point(floor((point.x - self.minP.x) / self.part_size.x), floor((point.y - self.minP.y) / self.part_size.y))
+	def clampIndex(self, point) :
+		""" 
+		Clamps a grid index to the grid ensuring it fits.
+		"""
+		if point.X < 0 :
+			point.X = 0
+		if point.Y < 0 :
+			point.Y = 0
+		if point.X >= self.partitions.X :
+			point.X = self.partitions.X - 1
+		if point.Y >= self.partitions.Y :
+			point.Y = self.partitions.Y - 1
+		return point
 	def grid_rect(self, ind_x, ind_y) :
 		"""
 		Calculates the min, max point of a grid square related to origo
@@ -92,12 +102,12 @@ class  PartitionGrid2D :
 		Append a triangle definined by the three points
 		face:		The face reference the triangles is related to
 		"""
-		p0, p1, p2 = face.loops[0][self.uv_lay].uv, face.loops[1][self.uv_lay].uv, face.loops[2][self.uv_lay].uv,
-		minP = self.calcIndex(minVec_x3(p0,p1,p2))
+		p0, p1, p2 = face.loops[0][self.uv_lay].uv, face.loops[1][self.uv_lay].uv, face.loops[2][self.uv_lay].uv
+		minP = self.calcIndex(minVec_x3(p0,p1,p2)) 
 		maxP = self.calcIndex(maxVec_x3(p0,p1,p2))
 		#Loop through each grid partition the overlap on x,y axis.
 		#If it also overlap on the three triangle edge axis it intersect the partition:
-		for y in range(minP.Y, maxP.Y + 1) : #+1 because [min, max)
+		for y in range(minP.Y, maxP.Y + 1) : #+1 because range does: [min, max)
 			for x in range(minP.X, maxP.X + 1) :
 				if self.grid[y][x].separatingTriAxis(p0,p1,p2) :
 					self.grid[y][x].append(face)
@@ -113,10 +123,29 @@ class  PartitionGrid2D :
 				#Verify intersection result
 				(intersect, uvw) = calculateBarycentricCoord2D(face.loops[0][self.uv_lay].uv, face.loops[1][self.uv_lay].uv, face.loops[2][self.uv_lay].uv, point_uv)
 				if intersect :
-					return (intersect, uvw, face)
+					return (intersect, uvw, face)			
 		#Either outside the grid or no face found to intersect with:
 		return (False, None, None)
-				
+	def trace_close_uv(self, point_uv) :
+		"""
+		Traces the closest edge to the point in the grid partition specified by the point
+		"""
+		ind = self.calcIndex(point_uv)
+		dist = sys.float_info.max
+		edge = None
+		calc_face = None
+		if self.in_grid(ind) :
+			for face in self.grid[ind.Y][ind.X].list :
+				for x in range(3) :
+					tmp = distanceEdge(face.loops[x][self.uv_lay].uv, face.loops[(x + 1)%3][self.uv_lay].uv, point_uv)
+					if tmp < dist :
+						dist = tmp
+						edge = (face.loops[x].vert, face.loops[(x + 1)%3].vert)
+						calc_face = face
+		if calc_face is None :
+			return (None, None, None, None)
+		(intersect, uvw) = calculateBarycentricCoord2D(calc_face.loops[0][self.uv_lay].uv, calc_face.loops[1][self.uv_lay].uv, calc_face.loops[2][self.uv_lay].uv, point_uv)
+		return (dist, calc_face, edge, uvw)
 	def from_bmesh_uv(bmesh, uv_lay, face_per_partition = 2, bias = 0.0001) :
 		"""
 		Construction function that creates a grid representing the specific uv map for the specified bmesh
@@ -137,6 +166,11 @@ class  PartitionGrid2D :
 		num_part = len(bmesh.faces) / face_per_partition
 		part_per_size = sqrt(num_part * 4) / (size.x + size.y)
 		partitions  = Point(ceil(size.x * part_per_size), ceil(size.y * part_per_size))
+		#Apply a bias limit on partition count:
+		if size.x / partitions.X < bias * 100 :
+			partitions.X = ceil(size.x / (bias * 100))
+		if size.y / partitions.Y < bias * 100 :
+			partitions.Y = ceil(size.y / (bias * 100))
 		grid = PartitionGrid2D(partitions, minUV, maxUV)
 		#Define the uv layer for the grid object
 		grid.uv_lay = uv_lay

@@ -59,7 +59,7 @@ def viewTypePersp(context) :
 		return context.area.spaces[0].region_3d.view_perspective == 'PERSP'
 	return False
 
-def createBmesh(ob, matrix = None, triangulate = False, scene = None, applyModifier = False) :
+def createBmesh(ob = None, matrix = None, triangulate = False, scene = None, applyModifier = False) :
 	"""
 	Create a bmesh from a mesh object.
 	ob: 			Object to create the bmesh from (should be type = 'Mesh')
@@ -72,7 +72,7 @@ def createBmesh(ob, matrix = None, triangulate = False, scene = None, applyModif
 
 	bm = bmesh.new()
 	
-	if ob.type == 'MESH' :
+	if ob is not None and ob.type == 'MESH' :
 		if applyModifier and scene is not None:
 			bm.from_object(ob, scene)
 		else :

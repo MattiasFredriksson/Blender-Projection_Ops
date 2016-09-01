@@ -59,7 +59,7 @@ class ProjectMesh(bpy.types.Operator):
 		self.cameraRot = findViewRotation(context) 
 		self.cameraRotInv = self.cameraRot.transposed()
 		self.camAxis = findViewAxis(context)
-		self.camPos = findViewPos(context)
+		self.cameraPos = findViewPos(context)
 		self.ortho = viewTypeOrtho(context)
 		self.lastOffset = self.depthOffset
 	

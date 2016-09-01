@@ -1,3 +1,5 @@
+Operator: Project Mesh onto UV Surface
+
 	Projects selected mesh object(s) onto the surface of the active mesh,
 	using the active UV map for guidance.
 	

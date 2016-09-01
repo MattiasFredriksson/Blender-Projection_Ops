@@ -100,53 +100,61 @@ def calculateBarycentricCoord2D(v0,v1,v2, point) :
 	e1 = v2-v0
 	e2 = point - v0
 	
-	d = 1 / (e0.x * e1.y - e1.x * e0.y)
+	d = (e0.x * e1.y - e1.x * e0.y)
+	if  d > -TriBias.bias and d < TriBias.bias :
+		return (False, Vector((0,)*3))
+	d = 1 / d
 	v = (e2.x * e1.y - e1.x * e2.y) * d
 	w = (e0.x * e2.y - e2.x * e0.y) * d
 	u = 1 - v - w
-	return (u > -TriBias.bias and v > -TriBias.bias and w > -TriBias.bias, Vector((u,v,w)))
-
-def projectAxis2D(axis, point) :
-	"""
-	Function projecting a point on the axis returning the axis scalar of the projection point
-	"""
-	projCalc = (point.x * axis.x + point.y * axis.y) / (axis.x * axis.x + axis.y * axis.y)
-	return axis.x * (axis.x * projCalc) + axis.y * (axis.y * projCalc);
-
-
+	return (u > 0 and v > 0 and w > 0, Vector((u,v,w)))
 	
-def separatingAxis2D(axis0, axis1, pList) :
+	
+def separatingTriAxis2D(tri_a0, tri_a1, tri_p, pList) :
 	"""
 	Separating axis function calculating if a set of points is separated from a axis segment
-	axis0:	2D Point defining axis
-	axis1:	Second point defining axis
-	pList:	List of 2D points that should be separated on the defined axis 
-	Return:	True if the points intersect over the axis segment
+	tri_a0, tri_a1:	First 2 points in triangle defining the axis edge
+	tri_p:			Third point in triangle
+	pList:			List of 2D points that should be separated on the defined axis 
+	Return:			True if the points intersect over the axis segment
 	"""
 	#Calculate the axis and the "segment" the axis points overlap:
-	axis = axis0 - axis1;
-	if axis.x == 0 and axis.y == 0 :
-		return False #No axis points are identical
-	pa_min = projectAxis2D(axis, axis0)
-	pa_max = projectAxis2D(axis, axis1)
-	#Swap if necessary
+	axis = tri_a1 - tri_a0;
+	axis.x, axis.y = -axis.y, axis.x #Take the normal of the axis
+	dot_inv = axis.dot(axis) #Axis dot 
+	if dot_inv > -TriBias.bias and dot_inv < TriBias.bias :
+		return False #Axis has length ~0
+	dot_inv = 1 / dot_inv #Inverse
+	
+	#Project one of the points generating axis (Note! only one needed):
+	proj = axis.dot(tri_a0)
+	pa_min =  proj * dot_inv #Project point distance on axis
+	
+	#Project the third point on the triangle:
+	proj = axis.dot(tri_p)
+	pa_max =  proj * dot_inv #Project point distance on axis
+	
+	
+	#Swap if necessary: Finding min/max span of tri on axis
 	if pa_max < pa_min :
 		pa_max, pa_min = pa_min, pa_max
+	
 	
 	#Calculate the segment on the axis the points overlap
 	pp_min = sys.float_info.max
 	pp_max = sys.float_info.min
 	for p in pList :
-		pp = projectAxis2D(axis, p)
+		proj = axis.dot(p)
+		pp =  proj * dot_inv #Project point distance on axis: squared length
 		pp_min = min(pp_min, pp)
 		pp_max = max(pp_max, pp)
 	
 	#Check if the points overlapps the axis "segment":
-	return pp_min <= pa_max and pp_max >= pa_min
+	return pp_min <= pa_max + TriBias.bias and pp_max >= pa_min - TriBias.bias
 	
-def	collideTriRect2D(p0, p1, p2, rectMin, rectMax) :
+def	collideTriAARect2D(p0, p1, p2, rectMin, rectMax) :
 	"""
-	Function checking if a tri intersects a rectangle using the separating axis theorem
+	Function checking if a tri intersects a AxisAligned rectangle using the separating axis theorem
 	p0,p1,p2:	2D points defining the triangle
 	rectMin:	Point defining the min point in the rectangle
 	rectMax:	Point defining the max point in the rectangle
@@ -166,4 +174,4 @@ def	collideTriRect2D(p0, p1, p2, rectMin, rectMax) :
 			Vector((rectMax.x, rectMax.y)),
 			Vector((rectMin.x, rectMax.y)))
 	#Check for a separating axis on the triangle!
-	return separatingAxis2D(p0, p1, pset) and separatingAxis2D(p1, p2, pset) and separatingAxis2D(p2, p1, pset)
+	return separatingTriAxis2D(p0, p1, p2, pset) and separatingTriAxis2D(p1, p2, p0, pset) and separatingTriAxis2D(p2, p0, p1, pset)
