@@ -19,7 +19,7 @@
 
 #Addon info
 bl_info = {
-	'name': "Project & Mirror Operators",
+	'name': "Projection Operators",
     'author': "Mattias Fredriksson ",
     'version': (0, 9, 1),
     'blender': (2, 77, 0),

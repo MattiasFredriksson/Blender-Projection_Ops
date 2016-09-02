@@ -64,7 +64,7 @@ class UVProjectMesh(bpy.types.Operator):
             default=0.5, min=0.1, max=20, step=100)
 	biasValue = FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
-            default=0.0001, min=0.00001, max=1, step=1)
+            default=0.00001, min=0.00001, max=1, step=1)
 	printExecTime = BoolProperty(name = "Print Execution Time",
             description="Prints execution time to the information panel, mutes warning in the last report panel",
 			default=False)

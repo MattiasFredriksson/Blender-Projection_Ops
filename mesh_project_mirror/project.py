@@ -48,7 +48,7 @@ class ProjectMesh(bpy.types.Operator):
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
 	bias = FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
-            default=0.0001, min=0.0001, max=1, step=3)
+            default=0.00001, min=0.00001, max=1, step=1)
 	
 	def invoke(self, context, event) :
 		""" 
@@ -66,9 +66,17 @@ class ProjectMesh(bpy.types.Operator):
 		target_ob = context.active_object
 		self.generate_BVH(target_ob, context.scene)
 		self.target_ob = target_ob.name
+		#Verify selection
+		if not target_ob or target_ob.type != 'MESH':
+			self.report({'ERROR'}, "No projection target selected!")
+			return {'CANCELLED'}
+		ob_sources = context.selected_objects
+		if len(ob_sources) <= 1 :
+			self.report({'ERROR'}, "No target or projection object selected!")
+			return {'CANCELLED'}
 		
 		self.ob_list = []
-		for ob in context.selected_objects :
+		for ob in ob_sources :
 			if ob.type == 'MESH' and ob != target_ob :
 				self.ob_list.append(SourceMesh(ob))
 		
@@ -120,17 +128,25 @@ class ProjectMesh(bpy.types.Operator):
 			#createMesh(bmesh, scene, mat) #Generate a aligned debug mesh
 			#Find the furthest point of the mesh along camera forward 
 			depthDist = max(self.camAxis[2].dot(mat * vMin), self.camAxis[2].dot(mat * vMax))
+			proj_list = [(None,None) for x in range(len(bmesh.verts))]
+			non_proj_list = []
 			#Project the vertices:
 			count = 0
+			count_closest = 0
 			for vert in bmesh.verts :
-				count += self.projectVert(mat, vert, depthDist)
+				count += self.projectVert(mat, vert, depthDist, proj_list, non_proj_list)
+			for vert in non_proj_list :
+				count_closest += self.projectClosestConnect(mat, vert, depthDist, proj_list)
 			#Finalize the projection by assigning the bmesh into the blender object 
 			#Validate one vert was projected first:
+			bmesh.select_flush(False)
 			
 			if count > 0 :
 				ob.bmesh_gen = bmesh
 				setNamedMesh(bmesh, ob.name, scene, Matrix.Translation(self.camAxis[2] * -self.depthOffset))
-				nonProjCount = len(bmesh.verts) - count
+				if count_closest > 0:
+					self.report({'WARNING'}, "Mesh: %s has %d vertices that failed to project and used neighbouring vertex result instead. Verify selected verts is projected OK" %(ob.name, count_closest))
+				nonProjCount = len(bmesh.verts) - (count + count_closest)
 				if nonProjCount != 0:
 					self.report({'WARNING'}, "Mesh: %s has %d vertices that did not project succesfully. Validate that the mesh is covered by the target" %(ob.name, nonProjCount))
 			else :
@@ -138,21 +154,46 @@ class ProjectMesh(bpy.types.Operator):
 	#Done
 	
 	
-	def projectVert(self, transMat, vert, depthDist) :
+	def projectVert(self, transMat, vert, depthDist, proj_list, non_proj) :
 		"""	Calculate the projection of a single vert (also sets the vert.co)
 		transMat:	Object transformation matrix
 		vert:		Vert being updated
 		"""
 		co =  transMat * vert.co
 		#Find the distance offset to the max point of the mesh along camera axis
-		depthOffset = -(depthDist - self.camAxis[2].dot(co))
 		dir = self.getCameraAxis(co)
 		#Ray cast:
 		(loc, nor, ind, dist) = self.bvh.ray_cast(co, dir, 100000)
 		#If intersection occured project it
 		if loc is not None:
-			vert.co = loc + dir * (depthOffset + self.depthOffset)
+			depthOffset = (self.depthOffset - (depthDist - self.camAxis[2].dot(co)))
+			vert.co = loc + dir * depthOffset
+			proj_list[vert.index] = (loc, nor) #Store projection point and normal
+			vert.select_set(False)
 			return True
+		#else:
+		non_proj.append(vert)
+		vert.select_set(True)
+		return False
+	
+	def projectClosestConnect(self, transMat, vert, depthDist, proj_list) :
+		co =  transMat * vert.co
+		for edge in vert.link_edges :
+			o_vert_ind = edge.other_vert(vert).index
+			if proj_list[o_vert_ind][0] is not None :
+				dir = self.getCameraAxis(co)
+				rel = proj_list[o_vert_ind][1].dot(dir) #Relation between ray dir and plane normal.
+				if abs(rel) <  self.bias:
+					continue
+				#Plane d value:
+				d = -proj_list[o_vert_ind][1].dot(proj_list[o_vert_ind][0])
+				#Calculate distance
+				dist = (-d - proj_list[o_vert_ind][1].dot(co)) / rel
+				
+				depthOffset = (self.depthOffset - (depthDist - self.camAxis[2].dot(co)))
+				#project
+				vert.co = co + dir * (dist + depthOffset)
+				return True
 		return False
 	
 	def orientation(self, ob) :

@@ -3,7 +3,7 @@ from math import *
 from mathutils import *
 
 class TriBias :
-	bias = 0.0001
+	bias = 0.00001
 
 def averageTexCoord(triFace, uvw, uv_lay) :
 	""" Calculates the Texture UV coordinates from the specified barycentric coords

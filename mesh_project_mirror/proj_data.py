@@ -32,7 +32,7 @@ class Setting :
 	Functions call them statically since they are not related to the main class object.
 	May not be the best solution but it works!
 	"""
-	bias = 0.0001
+	bias = 0.00001
 	smooth = True
 	scalar = Vector((1,1,1))
 	moveXY = Vector((0,0))
@@ -213,12 +213,12 @@ class ProjectionData :
 		#If intersection occured project it
 		if intersect:
 			vert.co = calcVertProjPoint(face, uvw, uv.z * Setting.scalar.z)
-			vert.select = False
+			vert.select_set(False)
 			return (face, True, True)
 		#If no intersection use the closest tri in the triangle
 		else :
 			(dist, face, edge, uvw) = self.uv_grid.trace_close_uv(uv.xy)
-			vert.select = True
+			vert.select_set(True)
 			if face is None : #No face in partition
 				return (face, False, False)
 			vert.co = calcVertProjPointClamp(face, uvw, uv.z * Setting.scalar.z)

@@ -48,7 +48,7 @@ class MirrorMesh(bpy.types.Operator):
 			default=False)
 	biasValue = FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
-            default=0.0001, min=0.0001, max=0.1)
+            default=0.00001, min=0.00001, max=1)
 	
 	#Shared Values set from the blender settings since functions call them statically as they are not related to the main class object.
 	#May not be the best solution but it works!
