@@ -122,7 +122,7 @@ def separatingTriAxis2D(tri_a0, tri_a1, tri_p, pList) :
 	axis = tri_a1 - tri_a0;
 	axis.x, axis.y = -axis.y, axis.x #Take the normal of the axis
 	dot_inv = axis.dot(axis) #Axis dot 
-	if dot_inv > -TriBias.bias and dot_inv < TriBias.bias :
+	if dot_inv == 0 :
 		return False #Axis has length ~0
 	dot_inv = 1 / dot_inv #Inverse
 	
@@ -150,7 +150,7 @@ def separatingTriAxis2D(tri_a0, tri_a1, tri_p, pList) :
 		pp_max = max(pp_max, pp)
 	
 	#Check if the points overlapps the axis "segment":
-	return pp_min <= pa_max + TriBias.bias and pp_max >= pa_min - TriBias.bias
+	return pp_min <= pa_max and pp_max >= pa_min
 	
 def	collideTriAARect2D(p0, p1, p2, rectMin, rectMax) :
 	"""

@@ -11,6 +11,8 @@ class Point :
 	def __init__(self, x, y) :
 		self.X = x
 		self.Y = y
+	def __str__(self) :
+		return "<Point (%d, %d)>" % (self.X, self.Y)
 
 def clamp(value) :
 	"""

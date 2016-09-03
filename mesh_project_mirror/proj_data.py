@@ -163,7 +163,7 @@ class ProjectionData :
 		for meshData in self.meshList :
 			if meshData.bounds == None :
 				return 0
-			#Copy and transform the bounds
+			#Copy and transform the bounds to the settings
 			bounds = meshData.bounds.copy()
 			if Setting.keepRelative :
 				bounds.ensureMeshRatio()
@@ -257,8 +257,6 @@ class ProjectionData :
 		centerTex = averageTexCoord(cFace, uvw, self.uv_lay)
 		
 		#Project the corners onto target uvmap and get texcoord min/max bounds the mesh will be projected between:
-		texMin = centerTex
-		texMax = centerTex
 		for i in range(len(corners)):
 			#Tries to find a projection onto the target mesh for a corner
 			corners[i] = self.traceUVTarget(corners[i], meshPos, centerTex)

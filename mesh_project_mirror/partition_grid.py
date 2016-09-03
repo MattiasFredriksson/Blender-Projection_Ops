@@ -54,10 +54,16 @@ class  PartitionGrid2D :
 			Functions is semi-designed to hold any type of 2D triangles but it needs a fetch, create & append methods for specific case.
 	"""
 	
-	def __init__(self, partitions, minPoint, maxPoint) :
-		self.maxP = maxPoint
-		self.minP = minPoint
-		self.size = maxPoint - minPoint
+	def __init__(self, partitions, minVec, maxVec) :
+		"""
+		Initiate the partition grid from the values
+		partitions: Point containing number of partitions on X & Y axis (Integers)
+		minVec:		Minimum point of the grid
+		maxVec:		Maximum point of the grid
+		"""
+		self.maxP = maxVec
+		self.minP = minVec
+		self.size = maxVec - minVec
 		#Vector containing number of partitions on x, y axis
 		self.partitions = partitions
 		#Size of a grid partition rectangle
@@ -146,7 +152,7 @@ class  PartitionGrid2D :
 			return (None, None, None, None)
 		(intersect, uvw) = calculateBarycentricCoord2D(calc_face.loops[0][self.uv_lay].uv, calc_face.loops[1][self.uv_lay].uv, calc_face.loops[2][self.uv_lay].uv, point_uv)
 		return (dist, calc_face, edge, uvw)
-	def from_bmesh_uv(bmesh, uv_lay, face_per_partition = 2, bias = 0.0001) :
+	def from_bmesh_uv(bmesh, uv_lay, face_per_partition = 2, bias = 0.00001) :
 		"""
 		Construction function that creates a grid representing the specific uv map for the specified bmesh
 		bmesh: 	Bmesh to create from
