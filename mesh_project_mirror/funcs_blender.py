@@ -112,13 +112,14 @@ def createEmptyMeshCopy(ob, context, obTag = "_Copy", meshTag = "_CopyMesh", cop
 	#If object is not a mesh return the empty
 	if ob.type != 'MESH':
 		return newOb
-
-	#Copy modifiers
-	for mod in ob.modifiers :
-		newOb.modifiers.new(mod.name, mod.type)
 	# Link object to the scene
 	if context is not None :
-		context.scene.objects.link(newOb)         						
+		context.scene.objects.link(newOb)
+	#Copy modifiers:
+	bpy.ops.object.select_all(action='DESELECT')
+	bpy.context.scene.objects.active = ob
+	newOb.select = True
+	bpy.ops.object.make_links_data(type='MODIFIERS')  						
 	return newOb
 
 def createMesh(bmesh, scene = None, matrix = None, name = "Object") :

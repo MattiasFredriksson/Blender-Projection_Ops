@@ -20,6 +20,7 @@
 
 import bpy, mathutils, bmesh, time
 
+from .funcs_blender import *
 from queue import Queue
 from bpy.props import *
 from math import *
@@ -87,15 +88,17 @@ class MirrorMesh(bpy.types.Operator):
 		tmod = ob_act.modifiers.new(name='tmpTriangulate', type='TRIANGULATE')
 		tmod.quad_method = 'BEAUTY'
 		#Create a bmesh with the modifiers applied and vertices in world space !
-		mMesh = createBmesh(ob_act, context.scene, True)
+		mMesh = createBmesh(ob_act, ob_act.matrix_world, False, context.scene, True)
 		#Clear tmp modifier
 		ob_act.modifiers.remove(tmod)
-				
+		#List of mirror object generated:
+		generated_mirrors = []
+		
 		#Lets mirror the selected meshes (exclude the active mirror mesh!)
 		for ob in context.selected_objects : 
 			if ob.type == 'MESH' and ob != ob_act :
 				#Copy the mesh into a bm mesh!
-				mesh = createBmesh(ob)
+				mesh = createBmesh(ob, ob.matrix_world)
 				
 				#Mirror it rawr
 				nonMCount = MirrorMesh.mirrorMesh(mesh, mMesh)
@@ -109,15 +112,19 @@ class MirrorMesh(bpy.types.Operator):
 					flipNormals(mesh)
 				
 					#Copy it into a new object!
-					mirrorOb = createEmptyMeshCopy(ob, "_Mirror", "_MirrorMesh", context)
+					mirrorOb = createEmptyMeshCopy(ob, context,"_Mirror", "_MirrorMesh")
 					# Set the mesh into the object
 					mesh.to_mesh(mirrorOb.data)
+					generated_mirrors.append(mirrorOb)
 					if nonMCount != 0 :
 						self.report({'WARNING'}, "Mesh: %s has %d vertices that did not intersect the mirror mesh. Validate that all verts intersect the mirror mesh for better result and faster execution" %(ob.name, nonMCount))
 				else :
 					self.report({'WARNING'}, "Mesh: %s does not intersect the mirror mesh, no mirror created" %ob.name)
 				# Free the bm data.
 				mesh.free()
+		#Re-Select 
+		for ob in generated_mirrors :
+			ob.select = True
 		#		
 		mMesh.free()
 		if MirrorMesh.displayExecutionTime :
@@ -322,44 +329,6 @@ class MirrorMesh(bpy.types.Operator):
 					tagList.append(otherFace)
 					
 	
-def createBmesh(ob, scene = None, applyModifiers = False) :
-
-	bm = bmesh.new()
-	
-	if ob.type == 'MESH' :
-		if applyModifiers and scene is not None:
-			bm.from_object(ob, scene)
-		else :
-			bm.from_mesh(ob.data)
-		bm.transform(ob.matrix_world)
-	
-		#Some derp functions we need to call to use it:
-		bm.verts.ensure_lookup_table()
-		bm.edges.ensure_lookup_table()
-		bm.faces.ensure_lookup_table()
-
-	return bm
-	
-def createEmptyMeshCopy(ob, obTag = "_Copy", meshTag = "_CopyMesh", context = None, copyTransform = True):
-	
-	#Creates a copy of a mesh with relevant data, if the object is not a mesh an empty mesh will be returned.
-	
-	mesh = bpy.data.meshes.new(ob.name + meshTag) 		# create a new mesh with the name
-	newOb = bpy.data.objects.new(ob.name + obTag, mesh)	# create an object with that mesh
-	if	copyTransform :
-		newOb.matrix_world = ob.matrix_world			# Copy the transformation matrix of the object 
-
-		#If object is not a mesh return the empty
-	if ob.type != 'MESH':
-		return newOb
-
-	#Copy modifiers
-	for mod in ob.modifiers :
-		newOb.modifiers.new(mod.name, mod.type)
-	# Link object to the scene
-	if context is not None :
-		context.scene.objects.link(newOb)         						
-	return newOb
 
 def flipNormals(bmesh):
 	for face in bmesh.faces :
