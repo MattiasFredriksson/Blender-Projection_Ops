@@ -1,3 +1,15 @@
+To use:
+1. Put the map with this file in it in blenders addon folder.
+2. Go to the Add-on section in the user preference tab.
+3. Enable the addon named Mesh: Projection Operators (in the Mesh add-on section)
+4. Not there? Use Refresh (bottom of user preference), restart blender or Google how to insall add-ons.
+
+
+
+
+
+
+
 Operator: Project Mesh onto UV Surface
 
 	Projects selected mesh object(s) onto the surface of the active mesh,

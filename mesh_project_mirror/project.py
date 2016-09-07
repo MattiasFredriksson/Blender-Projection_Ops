@@ -44,7 +44,7 @@ class ProjectMesh(bpy.types.Operator):
 			name = "Projection Alignment",
             description="Determines how the mesh will be aligned related to camera view before projection onto the surface. ",)
 	depthOffset = FloatProperty(name="Depth Offset",
-            description="Move the projection closer/away from target surface by a fixed amount",
+            description="Move the projection closer/away from target surface by a fixed amount (along camera forward axis)",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
 	bias = FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
@@ -90,17 +90,18 @@ class ProjectMesh(bpy.types.Operator):
 		"""
 		start_time = time.time()
 		
-		if  self.depthOffset != self.lastOffset:
-			self.lastOffset = self.depthOffset
-			#If only depth changed, move it on z axis:
-			self.depthChange(context.scene)
-		else:
+		offset_change =  self.depthOffset != self.lastOffset
+		
+		self.lastOffset = self.depthOffset
+		if not offset_change:
 			self.report({'INFO'}, "Executing: Mesh Projection")
 			#Project the meshes with the gathered information
 			self.project(context.scene)
 			#Finished
 			if ProjectMesh.displayExecutionTime :
 				self.report({'INFO'}, "Finished, project stage execution time: %.2f seconds ---" % (time.time() - start_time))
+		#Set offset move it on camera forward axis:
+		self.depthChange(context.scene)
 		return {'FINISHED'}
 		
 	def depthChange(self, scene) :
@@ -166,8 +167,8 @@ class ProjectMesh(bpy.types.Operator):
 		(loc, nor, ind, dist) = self.bvh.ray_cast(co, dir, 100000)
 		#If intersection occured project it
 		if loc is not None:
-			depthOffset = (self.depthOffset - (depthDist - self.camAxis[2].dot(co)))
-			vert.co = loc + dir * depthOffset
+			offset = -(depthDist - self.camAxis[2].dot(co))
+			vert.co = loc + dir * offset
 			proj_list[vert.index] = (loc, nor) #Store projection point and normal
 			vert.select_set(False)
 			return True
@@ -190,9 +191,9 @@ class ProjectMesh(bpy.types.Operator):
 				#Calculate distance
 				dist = (-d - proj_list[o_vert_ind][1].dot(co)) / rel
 				
-				depthOffset = (self.depthOffset - (depthDist - self.camAxis[2].dot(co)))
+				offset = -(depthDist - self.camAxis[2].dot(co))
 				#project
-				vert.co = co + dir * (dist + depthOffset)
+				vert.co = co + dir * (dist + offset)
 				return True
 		return False
 	
