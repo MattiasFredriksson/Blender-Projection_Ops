@@ -46,13 +46,13 @@ class UVProjectMesh(bpy.types.Operator):
 			default=False)
 	scalar = FloatProperty(name="Scale",
             description="Scale the surface mapping on the projection target",
-            default=1,  soft_min= 0.01, soft_max=10, step=2)
+            default=1,  soft_min= 0.01, soft_max=10, step=2, precision=2)
 	depthAdd = FloatProperty(name="Distance/Depth",
             description="Move the projection closer/away from target surface by a fixed amount",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
 	moveXY = FloatVectorProperty(name="Move", 
 			description="Move the UV surface mapping on the projection target", 
-			default=(0.0, 0.0), size=2, step=1)
+			default=(0.0, 0.0), size=2, step=1, precision=4)
 	rotation =  FloatProperty(name="Rotate",
             description="Rotate the object over the surface mapping",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=8)
@@ -102,12 +102,18 @@ class UVProjectMesh(bpy.types.Operator):
 		
 		# Get the active object and validate as mesh
 		ob_target = context.active_object
-		if not ob_target or ob_target.type != 'MESH':
-			self.report({'ERROR'}, "No projection target selected!")
-			return {'CANCELLED'}
 		ob_sources = context.selected_objects
-		if len(ob_sources) <= 1 :
-			self.report({'ERROR'}, "No target or projection object selected!")
+		
+		#Verify a list of objects to project.
+		proj_list = []
+		for ob in ob_sources : 
+			if ob.type == 'MESH' and ob != ob_target :
+				proj_list.append(ob)
+		if len(proj_list) == 0 :
+			if len(ob_sources) > 0 :
+				self.report({'ERROR'}, "Only mesh objects can be projected, need atleast one project source and one target surface object")
+			else :
+				self.report({'ERROR'}, "Not enough mesh objects selected, need atleast one source and one target object")
 			return {'CANCELLED'}
 			
 			
@@ -120,9 +126,12 @@ class UVProjectMesh(bpy.types.Operator):
 		#Generate the object holding the intitial data:
 		self.projData = ProjectionData(ob_target, cameraRotInv, camAxis, camPos, ortho,  self)
 		#Generate the data for our target ob:
-		self.projData.generateTargetData(ob_target, context)
+		if not self.projData.generateTargetData(ob_target, context):
+			#Error generating target data.
+			return {'CANCELLED'}
+			
 		#Generate projection information of the meshes that is being projected:
-		self.projData.generateSourceData(ob_sources, context.scene)
+		self.projData.generateSourceData(proj_list, context.scene)
 		if self.printExecTime :
 			self.report({'INFO'}, "Finished, invoke stage execution time: %.2f seconds ---" % (time.time() - start_time))
 		return self.execute(context)

@@ -64,21 +64,28 @@ class ProjectMesh(bpy.types.Operator):
 		self.lastOffset = self.depthOffset
 	
 		target_ob = context.active_object
-		self.generate_BVH(target_ob, context.scene)
-		self.target_ob = target_ob.name
-		#Verify selection
-		if not target_ob or target_ob.type != 'MESH':
-			self.report({'ERROR'}, "No projection target selected!")
+		#Verify target
+		if not target_ob:
+			self.report({'ERROR'}, "No active mesh object found to use as projection target.")
+			return {'CANCELLED'}
+		elif target_ob.type != 'MESH':
+			self.report({'ERROR'}, "Active object was not a mesh. Select an appropriate mesh object as projection target")
 			return {'CANCELLED'}
 		ob_sources = context.selected_objects
-		if len(ob_sources) <= 1 :
-			self.report({'ERROR'}, "No target or projection object selected!")
-			return {'CANCELLED'}
-		
+		#Verify selection
 		self.ob_list = []
 		for ob in ob_sources :
 			if ob.type == 'MESH' and ob != target_ob :
 				self.ob_list.append(SourceMesh(ob))
+		if len(self.ob_list) == 0 :
+			if len(ob_sources) > 0 :
+				self.report({'ERROR'}, "Only mesh objects can be projected, need atleast one project source and an active object as projection target")
+			else :
+				self.report({'ERROR'}, "No selection to project found, make sure to select one project source and an active object as projection target")
+			return {'CANCELLED'}
+		#Generate projection info
+		self.generate_BVH(target_ob, context.scene)
+		self.target_ob = target_ob.name
 		
 		if ProjectMesh.displayExecutionTime :
 			self.report({'INFO'}, "Finished, invoke stage execution time: %.2f seconds ---" % (time.time() - start_time))

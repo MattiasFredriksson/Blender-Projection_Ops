@@ -93,15 +93,24 @@ class ProjectionData :
 	def generateTargetData(self, object, context) :
 		"""	Generates projection information for the target mesh
 		"""
-		if not object or object.type != 'MESH':
-			return None
+		if object is None :
+			self.warning.report({'ERROR'}, "No active mesh object found to use as projection target.")
+			return False
+		elif object.type != 'MESH':
+			self.warning.report({'ERROR'}, "Active object was not a mesh. Select an appropriate mesh object as projection target")
+			return False
 		#Create a bmesh copy to project on with the modifiers applied and vertices in world space !
 		self.bmesh = createBmesh(object, object.matrix_world, True, context.scene, True)
+		#Find active uv layer ID and generate a grid for the uv map:
+		self.uv_lay = getUVKey(self.bmesh)
+		if self.uv_lay is None :
+			self.warning.report({'ERROR'}, "No active UV layer found on the target surface. Make sure there is an unwrapped UV Map available to project on.")
+			return False
 		#Create a bvh tree of the bmesh, used for specific projection calls.
 		self.bvh = bvhtree.BVHTree.FromBMesh(self.bmesh, epsilon = Setting.bias)
-		#Find active uv layer ID and generate a grid for the uv map:
-		self.uv_lay = self.bmesh.loops.layers.uv.active
+		#Generate partition grid
 		self.uv_grid = PartitionGrid2D.from_bmesh_uv(self.bmesh, self.uv_lay, 1 / Setting.partitions_per_face , Setting.bias)
+		return True
 	
 	def ray_cast_target(self, origin, maxDist = 10000) :
 		"""	
@@ -128,7 +137,8 @@ class ProjectionData :
 				data = self.createSourceBmesh(ob, scene)
 				if data is not None :
 					meshList.append(data)
-		self.meshList = meshList		
+		self.meshList = meshList	
+		return True
 	
 	def createSourceBmesh(self, object, scene):
 		"""	Function that calculates the bmesh of a mesh object to be projected onto the target

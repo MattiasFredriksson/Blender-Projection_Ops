@@ -60,7 +60,7 @@ class MirrorMesh(bpy.types.Operator):
 	cull = True
 	closestOnly = False
 	onlyIntersecting = True
-	displayExecutionTime = True
+	displayExecutionTime = False
 	
 	def execute(self, context):
 		MirrorMesh.bias = self.biasValue
@@ -75,11 +75,24 @@ class MirrorMesh(bpy.types.Operator):
 
 		# Get the active object
 		ob_act = bpy.context.active_object
-		
-		#Validate the active selection object
-		if not ob_act or ob_act.type != 'MESH':
-				self.report({'ERROR'}, "No mesh selected!")
-				return {'CANCELLED'}
+		#Verify target
+		if not ob_act:
+			self.report({'ERROR'}, "No active object found, make sure you have an active mesh object use as mirror.")
+			return {'CANCELLED'}
+		elif ob_act.type != 'MESH':
+			self.report({'ERROR'}, "The active object used as mirror must be a mesh")
+			return {'CANCELLED'}
+		ob_sources = context.selected_objects
+		#Verify selection
+		mirror_list = []
+		for ob in ob_sources :
+			if ob.type == 'MESH' and ob != ob_act :
+				mirror_list.append(ob)
+		if len(mirror_list) == 0 :
+			if len(ob_sources) == 0 :
+				self.report({'ERROR'}, "No selection found, need atleast one source and an active object as mirror surface")
+			else :
+				self.report({'ERROR'}, "Not enough mesh objects selected, need a selection of atleast one mesh object and an active object as mirror surface")
 			
 		if MirrorMesh.displayExecutionTime :
 			self.report({'INFO'}, "Executing: mirror_mesh_func")
@@ -95,7 +108,7 @@ class MirrorMesh(bpy.types.Operator):
 		generated_mirrors = []
 		
 		#Lets mirror the selected meshes (exclude the active mirror mesh!)
-		for ob in context.selected_objects : 
+		for ob in mirror_list : 
 			if ob.type == 'MESH' and ob != ob_act :
 				#Copy the mesh into a bm mesh!
 				mesh = createBmesh(ob, ob.matrix_world)

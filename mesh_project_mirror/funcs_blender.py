@@ -44,6 +44,12 @@ def findViewPos(context) :
 		#Return camera position
 		return context.area.spaces[0].region_3d.view_location + findViewForward(context) * -1 * context.area.spaces[0].region_3d.view_distance
 	return Vector((0,0, 0))
+
+def getUVKey(bmesh) :
+	"""
+	Fetches the UV layer key from a bmesh
+	"""
+	return bmesh.loops.layers.uv.active
 	
 def viewTypeOrtho(context) :
 	""" Returns True if camera mode is orthographic
