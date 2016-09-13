@@ -2,6 +2,7 @@
 import bpy, bmesh
 from math import *
 from mathutils import *
+from .funcs_math import *
 
 def findViewRotation(context) :
 	"""
@@ -12,20 +13,6 @@ def findViewRotation(context) :
 		cQuat = context.area.spaces[0].region_3d.view_rotation
 		return cQuat.to_matrix()
 	return Matrix.Identity(3)		
-		
-def findViewAxis(context) :
-	"""
-	Function that finds the camera right/up/forward axis from a 3D view context
-	"""
-	m = Matrix.Identity(3)
-	if context.area.type == 'VIEW_3D':
-		cQuat = context.area.spaces[0].region_3d.view_rotation
-		m[1] = cQuat * Vector((0,1,0))
-		m[2] = cQuat * Vector((0,0,-1))
-		m[1].normalize()
-		m[2].normalize()
-		m[0] = m[2].cross(m[1]).normalized()
-	return m
 	
 def findViewForward(context) :
 	"""
@@ -42,7 +29,8 @@ def findViewPos(context) :
 	"""
 	if context.area.type == 'VIEW_3D':
 		#Return camera position
-		return context.area.spaces[0].region_3d.view_location + findViewForward(context) * -1 * context.area.spaces[0].region_3d.view_distance
+		cQuat = context.area.spaces[0].region_3d.view_rotation
+		return context.area.spaces[0].region_3d.view_location + cQuat * Vector((0,0, 1)) * context.area.spaces[0].region_3d.view_distance
 	return Vector((0,0, 0))
 
 def getUVKey(bmesh) :
@@ -64,6 +52,49 @@ def viewTypePersp(context) :
 	if context.area.type == 'VIEW_3D':
 		return context.area.spaces[0].region_3d.view_perspective == 'PERSP'
 	return False
+
+def getBoundBox(object) : 
+	"""
+	Fetches the bounding box of a mesh object.
+	"""
+	object_BB = []
+	object_BB.append( Vector((object.bound_box[0][0],object.bound_box[0][1],object.bound_box[0][2])) )
+	object_BB.append( Vector((object.bound_box[1][0],object.bound_box[1][1],object.bound_box[1][2])) )
+	object_BB.append( Vector((object.bound_box[2][0],object.bound_box[2][1],object.bound_box[2][2])) )
+	object_BB.append( Vector((object.bound_box[3][0],object.bound_box[3][1],object.bound_box[3][2])) )
+	object_BB.append( Vector((object.bound_box[4][0],object.bound_box[4][1],object.bound_box[4][2])) )
+	object_BB.append( Vector((object.bound_box[5][0],object.bound_box[5][1],object.bound_box[5][2])) )
+	object_BB.append( Vector((object.bound_box[6][0],object.bound_box[6][1],object.bound_box[6][2])) )
+	object_BB.append( Vector((object.bound_box[7][0],object.bound_box[7][1],object.bound_box[7][2])) )
+	return(object_BB)
+def getBoundBoxVolume(object) :
+	"""
+	Fetches the boundign box volume of a blender object.
+	"""
+	point = Vector((object.bound_box[0][0],object.bound_box[0][1],object.bound_box[0][2]))
+	up = Vector((object.bound_box[4][0],object.bound_box[4][1],object.bound_box[4][2])) - point
+	side_a = Vector((object.bound_box[1][0],object.bound_box[1][1],object.bound_box[1][2])) - point
+	side_b = Vector((object.bound_box[3][0],object.bound_box[3][1],object.bound_box[3][2])) - point	
+	return up.length * side_a.length * side_b.length
+	
+def generate_BVH(target_ob, scene, bias = 0.00001) :
+	"""
+	Generate a bvh from a mesh object
+	"""
+	#Can't create from object, transformation not applied
+	bmesh = createBmesh(target_ob, target_ob.matrix_world, True, scene, True)
+	bvh = bvhtree.BVHTree.FromBMesh(bmesh, epsilon = bias) 
+	bmesh.free()
+	return bvh
+	
+def if_scaleInversedFlipNormals(bmesh, scaleVec) :
+	"""
+	Flips normals if there is an un-even amount of negatively scaled axis
+	"""
+	neg_scale, uneven_neg_axis = negativeScale(scaleVec)
+	if uneven_neg_axis :
+		for face in bmesh.faces :
+			face.normal_flip()
 
 def createBmesh(ob = None, matrix = None, triangulate = False, scene = None, applyModifier = False) :
 	"""
@@ -141,7 +172,9 @@ def createMesh(bmesh, scene = None, matrix = None, name = "Object") :
 		newOb.matrix_world = matrix
 	#Link to scene
 	if scene is not None :
-		scene.objects.link(newOb)         	
+		scene.objects.link(newOb)  
+	#Set bmesh
+	bmesh.normal_update()  	
 	bmesh.to_mesh(newOb.data)					
 	return newOb
 	

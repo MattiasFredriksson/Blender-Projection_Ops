@@ -47,7 +47,7 @@ class UVProjectMesh(bpy.types.Operator):
 	scalar = FloatProperty(name="Scale",
             description="Scale the surface mapping on the projection target",
             default=1,  soft_min= 0.01, soft_max=10, step=2, precision=2)
-	depthAdd = FloatProperty(name="Distance/Depth",
+	depthAdd = FloatProperty(name="Surface Offset",
             description="Move the projection closer/away from target surface by a fixed amount",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
 	moveXY = FloatVectorProperty(name="Move", 
@@ -120,11 +120,10 @@ class UVProjectMesh(bpy.types.Operator):
 		#Find 3d view camera rotation from context:
 		cameraRot = findViewRotation(context)
 		cameraRotInv = cameraRot.transposed()
-		camAxis = findViewAxis(context)
 		camPos = findViewPos(context)
 		ortho = viewTypeOrtho(context)
 		#Generate the object holding the intitial data:
-		self.projData = ProjectionData(ob_target, cameraRotInv, camAxis, camPos, ortho,  self)
+		self.projData = ProjectionData(ob_target, cameraRotInv, cameraRot, camPos, ortho,  self)
 		#Generate the data for our target ob:
 		if not self.projData.generateTargetData(ob_target, context):
 			#Error generating target data.

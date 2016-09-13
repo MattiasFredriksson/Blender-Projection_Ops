@@ -21,11 +21,11 @@
 bl_info = {
 	'name': "Projection Operators",
     'author': "Mattias Fredriksson ",
-    'version': (0, 9, 1),
+    'version': (0, 9, 3),
     'blender': (2, 77, 0),
-    'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active",
+    'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active, Align Selection to View",
     'warning': "Bugs can exist, beware of using operators outside the usecase",
-    'description': "3 Operators containing functionality for mirroring and projection mesh objects over/onto a mesh surface",
+    'description': "4 Operators containing functionality for mirroring and projection mesh objects over/onto a mesh surface",
     'wiki_url': "",
     'tracker_url': "",
     'category': 'Mesh'}
@@ -51,9 +51,15 @@ if "bpy" in locals():
         importlib.reload(project)
     if "mesh_mirror_script" in locals():
         importlib.reload(mesh_mirror_script)
+    if "align_to_view" in locals():
+        importlib.reload(align_to_view)
+    if "plane" in locals():
+        importlib.reload(plane)
+    if "axis_align" in locals():
+        importlib.reload(axis_align)
 #Script loading
 else:
-    from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script
+    from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
 
 
 import bpy
@@ -61,6 +67,7 @@ import bpy
 from .uv_project import UVProjectMesh
 from .project import ProjectMesh
 from .mesh_mirror_script import MirrorMesh
+from .align_to_view import AlignSelection
 
 	
 
@@ -69,11 +76,13 @@ def register():
 	bpy.utils.register_class(UVProjectMesh)
 	bpy.utils.register_class(ProjectMesh)
 	bpy.utils.register_class(MirrorMesh)
+	bpy.utils.register_class(AlignSelection)
 
 def unregister():
 	bpy.utils.unregister_class(UVProjectMesh)
 	bpy.utils.unregister_class(ProjectMesh)
 	bpy.utils.unregister_class(MirrorMesh)
+	bpy.utils.unregister_class(AlignSelection)
 
 if __name__ == "__main__":
 		register()

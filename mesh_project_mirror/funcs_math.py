@@ -4,6 +4,10 @@ import sys
 from math import *
 from mathutils import *
 
+#Define pi
+pi = 3.14159265359
+half_pi = 3.14159265359 / 2.0
+
 class Point :
 	"""
 	Point containing integers
@@ -127,6 +131,17 @@ def scaleMatrix(scaleVec, size = 4) :
 	if size > 2 :
 		mat[2].z = scaleVec.z
 	return mat
+	
+def negativeScale(scaleVec) :
+	"""
+	Returns if the object has a negative scaled axis, also returns if there is even or un-even amount of negatively scaled axis:
+	even = no req. to flip normals (False)
+	un-even normals must be flipped (True)
+	"""
+	count = scaleVec[0] < 0
+	count += scaleVec[1] < 0
+	count += scaleVec[2] < 0
+	return count > 0, count % 2
 	
 def distanceEdge(e0, e1, point) :
 	"""

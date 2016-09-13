@@ -25,6 +25,7 @@ from .funcs_math import *
 from .funcs_blender import *
 from .bound import *
 from .partition_grid import *
+from .axis_align import *
 
 class Setting :
 	"""
@@ -141,7 +142,10 @@ class ProjectionData :
 		return True
 	
 	def createSourceBmesh(self, object, scene):
-		"""	Function that calculates the bmesh of a mesh object to be projected onto the target
+		"""	Function that calculates the bmesh of a mesh object to be projected onto the target.
+		Calculates the rotation so that the bmesh verts is placed in origo rotated how it will be placed on the surface (mesh Z is facing up from surface)
+		It also calculates which mesh axis represents the X,Y in world space of our surface oriented mesh.
+		The X,Y axis representation will then be projected onto the surface to find the oriented rectangle representation on the UV map.
 		"""
 		#Find the orientation basis of the projected mesh aligned with camera view:
 		loc, meshRot, sca = object.matrix_world.decompose()
@@ -149,12 +153,17 @@ class ProjectionData :
 		#
 		if Setting.proj_type == 'ZISUP' :
 			rot = Matrix.Identity(3)
-			axis = zUpFindAxis(meshRot.transposed(), self.cameraAxis)
+			axis = zUpFindAxis(meshRot, self.cameraAxis)
 		elif Setting.proj_type == 'CAMERA' :
 			rot = self.cameraRotInv * meshRot
 			axis = self.cameraAxis.copy()
-		elif Setting.proj_type == 'AXISALIGNED' or Setting.proj_type is None :
-			rot, axis = axisAlignRotationMatrix(self.cameraRotInv * meshRot,  meshRot.transposed())
+		else : #Setting.proj_type == 'AXISALIGNED'
+			#Aligns the mesh to (1,0,0),... axis in camera space
+			rot = axisAlignRotationMatrix(self.cameraRotInv * meshRot)
+			#Calculates the mesh axis representing our scrambled view oriented rotation, equal to:
+			#axis[0] = meshRot * rot.row[0] (X), gives the world x axis of the mesh in aligned camera view
+			#axis[1] = meshRot * rot.row[1] (Y)...
+			axis = meshRot * rot.transposed() 
 		
 		#Create a bm mesh copy of the mesh!
 		bmesh = createBmesh(object, (rot * scaleMatrix(sca, 3)).to_4x4())
@@ -187,7 +196,7 @@ class ProjectionData :
 			count_success = 0 #Keeps track of successfull verts projected
 			count_partial = 0 
 			for vert in bmesh.verts :
-				(face, success, partial_success) = self.projectVert(vert, meshData.bmeshSource.verts[i], bounds)
+				(success, partial_success) = self.projectVert(vert, meshData.bmeshSource.verts[i], bounds)
 				count_partial += partial_success
 				count_success += success
 				i += 1
@@ -196,7 +205,7 @@ class ProjectionData :
 			#Validate one vert was projected first:
 			if count_success > 0 :
 				ob = setNamedMesh(bmesh, meshData.ob_name, context.scene, Matrix.Identity(4))
-				#createMesh(meshData.bmeshSource, context.scene)
+				#createMesh(meshData.bmeshSource, context.scene) #Create surface alignment copy: Debug
 				obList.append(ob)
 				blen = len(bmesh.verts)
 				if blen - count_partial != 0:
@@ -224,22 +233,22 @@ class ProjectionData :
 		if intersect:
 			vert.co = calcVertProjPoint(face, uvw, uv.z * Setting.scalar.z)
 			vert.select_set(False)
-			return (face, True, True)
+			return (True, True)
 		#If no intersection use the closest tri in the triangle
 		else :
 			(dist, face, edge, uvw) = self.uv_grid.trace_close_uv(uv.xy)
 			vert.select_set(True)
 			if face is None : #No face in partition
-				return (face, False, False)
+				return (False, False)
 			vert.co = calcVertProjPointClamp(face, uvw, uv.z * Setting.scalar.z)
-			return (face, True, False)
+			return (True, False)
 	
 	
 	#Find the bounds of a specified mesh
 	def calculateBounds(self, mesh, alignedAxis, meshPos, meshName) :
 		"""
-		Calculates the projection target area and the mesh source box.
-		mesh:			The source mesh being projected
+		Calculates the oriented rectangle on the uv map used as projection target and the mesh bounding box (around the rotated mesh).
+		mesh:			The source bmesh being projected
 		alignedAxis: 	The axis that defines the min/max area
 		meshPos:		The mesh center point in world coordinates.
 		meshName:		Mesh name, used to print warning info
@@ -254,10 +263,10 @@ class ProjectionData :
 		#To fix this the rotation difference between camera and mesh origin could be applied to the min/max projection points (not bounds!)
 		#Note* only orthographic support for now
 		corners = []
-		corners.append(vMin.x * alignedAxis[0] + vMax.y * alignedAxis[1] + meshPos)	#topL
-		corners.append(vMax.x * alignedAxis[0] + vMax.y * alignedAxis[1] + meshPos)	#topR
-		corners.append(vMax.x * alignedAxis[0] + vMin.y * alignedAxis[1] + meshPos)	#botR
-		corners.append(vMin.x * alignedAxis[0] + vMin.y * alignedAxis[1] + meshPos)	#botL
+		corners.append(vMin.x * alignedAxis.col[0] + vMax.y * alignedAxis.col[1] + meshPos)	#topL
+		corners.append(vMax.x * alignedAxis.col[0] + vMax.y * alignedAxis.col[1] + meshPos)	#topR
+		corners.append(vMax.x * alignedAxis.col[0] + vMin.y * alignedAxis.col[1] + meshPos)	#botR
+		corners.append(vMin.x * alignedAxis.col[0] + vMin.y * alignedAxis.col[1] + meshPos)	#botL
 		
 		#Project center point onto target and calculate the texture coordinates of the intersection point:
 		(cFace, dist, uvw) = self.ray_cast_target(meshPos)
@@ -279,13 +288,13 @@ class ProjectionData :
 			self.warning.report({'WARNING'}, "Mesh: %s projection target area is 0, verify the uv map and that the mesh is projected onto the target object" %(meshName))
 		return bound
 	
-	def getCameraAxis(self, target) :
+	def getCameraAxis(self, target_co) :
 		"""	Calculates the projection ray direction
 		"""
 		if self.ortho :
-			return self.cameraAxis[2]
+			return -self.cameraAxis.col[2]
 		else :
-			dir = target - self.cameraPos
+			dir = target_co - self.cameraPos
 			dir.normalize()
 			return dir
 	
@@ -341,61 +350,28 @@ def calcVertProjPointClamp(face, uvw, depth) :
 	else :
 		return co + face.normal * depth
 
-def zIsUp(rotMat, camAxis) :
-	""" 
-	Special funcition that keeps the Z axis of the mesh as the depth component but rotates the mesh along x & y axis
-	"""
-	plane_x = camAxis[2].dot(rotMat[0]) * camAxis[2] + rotMat[0]
-	plane_y = camAxis[2].dot(rotMat[1]) * camAxis[2] + rotMat[1]
-	plane_x.normalize()
-	plane_y.normalize()
-	plane_x = Vector((plane_x.dot(rotMat[0]),plane_x.dot(rotMat[1]),0))
-	plane_y = Vector((plane_y.dot(rotMat[0]),plane_y.dot(rotMat[1]),0))
-	
-	rotMat[2], rotMat[0], rotMat[1] = orthoNormalizeVec3(Vector((0,0,1)), plane_x, plane_y)
-	return rotMat
-
 def zUpFindAxis(meshAxis, camAxis) :
-	"""	Finds the mesh X,Y axis best aligned with camera view to determine the basis used to place the mesh on the surface (ensures matrix orientation)
+	"""	Finds the mesh axis that will represent the X,Y with Z rotated to point toward camera.
+		The current mesh axis orientation used to place the mesh Identity on the surface (ensures matrix orientation)
 	"""
-	xDot = meshAxis[0].dot(camAxis[2])
-	yDot = meshAxis[1].dot(camAxis[2])
-	zDot = meshAxis[2].dot(camAxis[2])
+	xDot = meshAxis.col[0].dot(camAxis.col[2])
+	yDot = meshAxis.col[1].dot(camAxis.col[2])
+	zDot = meshAxis.col[2].dot(camAxis.col[2])
 	
 	ret = meshAxis.copy()
 	if abs(xDot) > max(abs(yDot), abs(zDot)) :
-		ret[0] = meshAxis[2] * sign(xDot)
-		ret[1] = meshAxis[1]
+		#X axis faces camera, set X to Z axis
+		ret.col[0] = meshAxis.col[2] * sign(xDot)
+		ret.col[1] = meshAxis.col[1]
 	elif abs(yDot) > abs(zDot) :
-		ret[0] = meshAxis[0]
-		ret[1] = meshAxis[2] * sign(yDot)
+		#Y axis faces camera, set Y to Z axis
+		ret.col[0] = meshAxis.col[0]
+		ret.col[1] = meshAxis.col[2] * sign(yDot)
 	else :
-		ret[0] = meshAxis[0] * -sign(zDot)
-		ret[1] = meshAxis[1]
+		#Z faces camera, flip X deppending on Z points away or toward camera
+		ret.col[0] = meshAxis.col[0] * -sign(zDot)
+		ret.col[1] = meshAxis.col[1]
+	ret.col[2] = meshAxis.col[0].cross(meshAxis.col[1])
 	return ret
 	
-	
-
-def axisAlignRotationMatrix(rotMat, meshRot) :
-	"""	Align the rotation matrix to the closest world axes and allows organizing a matrix with the same scrabled axis order.
-	"""
-	rot = meshRot.copy()
-	rotMat[0].xyz, rot[0]  = findAxisAlignment(rotMat[0], meshRot)
-	rotMat[1].xyz, rot[1] = findAxisAlignment(rotMat[1], meshRot)
-	rotMat[2].xyz, rot[2] = findAxisAlignment(rotMat[2], meshRot)
-	return rotMat, rot
-	
-def findAxisAlignment(axis, axisMat) :
-	""" 
-	Finds the largest component of the axis and returns it as a axis aligned unit vector.
-	Also identifies the the relative axis index.
-	"""
-	if abs(axis[0]) > max(abs(axis[1]), abs(axis[2])) :
-		s_val = sign(axis[0])
-		return Vector((s_val,0,0)), axisMat[0] * s_val
-	elif abs(axis[1]) > abs(axis[2]) :
-		s_val = sign(axis[1])
-		return Vector((0,s_val,0)), axisMat[1] * s_val
-	s_val = sign(axis[2])
-	return Vector((0,0,s_val)), axisMat[2] * s_val
 	

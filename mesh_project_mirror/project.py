@@ -23,6 +23,7 @@ from math import *
 from mathutils import *
 from .funcs_math import *
 from .funcs_blender import *
+from .plane import *
 from bpy.props import * #Property objects
 
 
@@ -32,23 +33,33 @@ class ProjectMesh(bpy.types.Operator):
 	bl_info = "Projects a selected mesh(es) onto the active mesh"
 	bl_options = {'REGISTER', 'UNDO'}
 	
-	proj_type_enum = [
-		("AXISALIGNED", "Axis Aligned", "The projected mesh(es) will be rotated so it's axis with the smallest angel toward the camera will face the it", 1),
-		("CAMERA", "Camera View", "The mesh will be projected as is, where each vertice distance from the projection surface will be determined by the furthest point from the camera (plane)", 2),
-		("ZISUP", "Z is Up", "The projected mesh(es) will be rotated so the Z axis will face the camera", 3),
+	depth_axis_enum = [
+		("Z", "Z", "The objects Z axis will be used", 0),
+		("Y", "Y", "The objects Y axis will be used", 1),
+		("X", "X", "The objects X axis will be used", 2),
+		("CAMERA", "View", "The camera forward axis will determine the offset from the surface", 3),
+		("CLOSEST", "Closest Axis", "The closest local axis to the camera view will determine the surface offset", 4),
+		]
+	largest_obj_enum = [
+		("VOLUME", "Volume", "The object with the largest bounding box volume", 1),
+		("VERTCOUNT", "Vertex Count", "The object with the most vertices", 2),
 		]
 	
 	displayExecutionTime = False
 	
-	proj_type = EnumProperty(items=proj_type_enum, 
-			name = "Projection Alignment",
-            description="Determines how the mesh will be aligned related to camera view before projection onto the surface. ",)
-	depthOffset = FloatProperty(name="Depth Offset",
-            description="Move the projection closer/away from target surface by a fixed amount (along camera forward axis)",
+	depth_axis = EnumProperty(items=depth_axis_enum, 
+			name = "Depth Axis",
+            description="Select the axis that determines the offset from the surface for each vertex (local axis is related to parent object). ",
+			default = 'CLOSEST',)
+	largest_obj = EnumProperty(items=largest_obj_enum, 
+			name = "Selection Parent",
+            description="Determines which object's depth/offset axis is used with a local axis setting",)
+	depthOffset = FloatProperty(name="Surface Offset",
+            description="Move the projection closer/away from target surface by a fixed amount (along neg. view forward axis)",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
 	bias = FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
-            default=0.00001, min=0.00001, max=1, step=1)
+            default=0.00001, min=0.00001, max=1, step=1, precision=4)
 	
 	def invoke(self, context, event) :
 		""" 
@@ -58,10 +69,15 @@ class ProjectMesh(bpy.types.Operator):
 		#Fetch camera orientations:
 		self.cameraRot = findViewRotation(context) 
 		self.cameraRotInv = self.cameraRot.transposed()
-		self.camAxis = findViewAxis(context)
+		self.cameraForward = -self.cameraRot.col[2]
 		self.cameraPos = findViewPos(context)
 		self.ortho = viewTypeOrtho(context)
 		self.lastOffset = self.depthOffset
+		
+		#Params that will be set:
+		self.ob_list = None #Objects that will be projected
+		self.child_list = None #List of child objects transformed around the parent.
+		self.parent_ob = None #The parent object
 	
 		target_ob = context.active_object
 		#Verify target
@@ -74,9 +90,10 @@ class ProjectMesh(bpy.types.Operator):
 		ob_sources = context.selected_objects
 		#Verify selection
 		self.ob_list = []
+		#Cull non-mesh and active objects:
 		for ob in ob_sources :
 			if ob.type == 'MESH' and ob != target_ob :
-				self.ob_list.append(SourceMesh(ob))
+				self.ob_list.append(SourceMesh(ob, self))
 		if len(self.ob_list) == 0 :
 			if len(ob_sources) > 0 :
 				self.report({'ERROR'}, "Only mesh objects can be projected, need atleast one project source and an active object as projection target")
@@ -84,8 +101,15 @@ class ProjectMesh(bpy.types.Operator):
 				self.report({'ERROR'}, "No selection to project found, make sure to select one project source and an active object as projection target")
 			return {'CANCELLED'}
 		#Generate projection info
-		self.generate_BVH(target_ob, context.scene)
+		bvh = generate_BVH(target_ob, context.scene, self.bias)
 		self.target_ob = target_ob.name
+		
+		#Generate project data
+		for ob in self.ob_list :
+			if self.ortho :
+				ob.projectVertOrtho(self.cameraForward, bvh)
+			else :
+				ob.projectVertPersp(self.cameraPos, bvh)
 		
 		if ProjectMesh.displayExecutionTime :
 			self.report({'INFO'}, "Finished, invoke stage execution time: %.2f seconds ---" % (time.time() - start_time))
@@ -114,160 +138,195 @@ class ProjectMesh(bpy.types.Operator):
 	def depthChange(self, scene) :
 		"""	Moves the objects along camera z axis
 		"""
-		mat = Matrix.Translation(self.camAxis[2] * -self.depthOffset)
+		mat = Matrix.Translation(self.cameraForward * -self.depthOffset)
 		for ob in self.ob_list : 
-			if ob.bmesh_gen is not None:
-				setNamedMesh(ob.bmesh_gen, ob.name, scene, Matrix.Translation(self.camAxis[2] * -self.depthOffset))
-	
-	def generate_BVH(self, target_ob, scene) :
-		#Can't create from object, transformation not applied
-		bmesh = createBmesh(target_ob, target_ob.matrix_world, True, scene, True)
-		self.bvh = bvhtree.BVHTree.FromBMesh(bmesh, epsilon = self.bias) 
-		bmesh.free()
+			if ob.bmesh is not None:
+				setNamedMesh(ob.bmesh, ob.name, scene, mat)
 	
 	def project(self, scene) :
 		"""	Project the mesh(es) onto the target
 		"""
-		for ob in self.ob_list : 
-			#Create a bm mesh copy of the mesh!
-			bmesh = ob.bmesh.copy()
-			(vMin, vMax) = findMinMax(bmesh)
-			mat = self.orientation(ob)
-			#createMesh(bmesh, scene, mat) #Generate a aligned debug mesh
-			#Find the furthest point of the mesh along camera forward 
-			depthDist = max(self.camAxis[2].dot(mat * vMin), self.camAxis[2].dot(mat * vMax))
-			proj_list = [(None,None) for x in range(len(bmesh.verts))]
-			non_proj_list = []
+		
+		#Find our parent object
+		parent_ob, child_list = self.findParent()
+		
+		#Find the depth axis
+		depth_axis = self.getDepthAxis(parent_ob)
+		#Calculate the offset of each vertex
+		min_offset = self.calcOffset(depth_axis)
+						
+		for ob in self.ob_list : 			
 			#Project the vertices:
 			count = 0
-			count_closest = 0
-			for vert in bmesh.verts :
-				count += self.projectVert(mat, vert, depthDist, proj_list, non_proj_list)
-			for vert in non_proj_list :
-				count_closest += self.projectClosestConnect(mat, vert, depthDist, proj_list)
-			#Finalize the projection by assigning the bmesh into the blender object 
-			#Validate one vert was projected first:
-			bmesh.select_flush(False)
+			used_closest = 0
+			for vert in ob.bmesh.verts :
+				success, used_con = self.projectVert(ob, vert, min_offset)
+				count += success
+				used_closest += used_con
 			
+			#Finalize the projection by assigning the bmesh into the blender object 
 			if count > 0 :
-				ob.bmesh_gen = bmesh
-				setNamedMesh(bmesh, ob.name, scene, Matrix.Translation(self.camAxis[2] * -self.depthOffset))
-				if count_closest > 0:
-					self.report({'WARNING'}, "Mesh: %s has %d vertices that failed to project and used neighbouring vertex result instead. Verify selected verts is projected OK" %(ob.name, count_closest))
-				nonProjCount = len(bmesh.verts) - (count + count_closest)
+				ob.bmesh.select_flush(False)
+				setNamedMesh(ob.bmesh, ob.name, scene, Matrix.Translation(self.cameraForward * -self.depthOffset))
+				if used_closest > 0:
+					self.report({'WARNING'}, "Mesh: %s has %d vertices that failed to project and used neighbouring vertex result instead. Verify selected verts is projected OK" %(ob.name, used_closest))
+				nonProjCount = len(ob.bmesh.verts) - (count)
 				if nonProjCount != 0:
 					self.report({'WARNING'}, "Mesh: %s has %d vertices that did not project succesfully. Validate that the mesh is covered by the target" %(ob.name, nonProjCount))
 			else :
 				self.report({'WARNING'}, "Mesh: %s had no vertices projected onto the target. Validate that the mesh is covered by the target" %(ob.name))
 	#Done
 	
+	def findParent(self) :
+		"""
+		Finds the parent deppending on setting
+		"""
+		#Compare value
+		value = sys.float_info.min
+		parent_ob = None
+		#Compare volume
+		if self.largest_obj == 'VOLUME' :
+			for ob in self.ob_list :
+				if ob.volume > value :
+					value = ob.volume
+					parent_ob = ob
+		#Compare vert count
+		else :
+			for ob in self.ob_list :
+				if len(ob.bmesh.verts) > value :
+					value = len(ob.bmesh.verts)
+					parent_ob = ob
+		#Generate a list with only child objects:
+		child_list = []
+		for ob in self.ob_list :
+			if ob is not parent_ob :
+				child_list.append(ob)
+		#Store info
+		return parent_ob, child_list
+	#End
 	
-	def projectVert(self, transMat, vert, depthDist, proj_list, non_proj) :
+	def calcOffset(self, depthAxis) :
+		"""
+		Calculates the offset of each vert 
+		"""
+		min_val = sys.float_info.max
+		for ob in self.ob_list :
+			min_val = ob.calcOffset(depthAxis, min_val)
+		return min_val
+				
+	def getDepthAxis(self, object) :
+		"""
+		Finds the axis in world space used that determines the depth offset.
+		Note that the depth is measured in the direction of the axis (offset increases with distance on axis)
+		"""
+		if self.depth_axis == 'CLOSEST' :
+			return findClosestAxis(object.rotation, -self.cameraForward)
+		elif self.depth_axis == 'X' :
+			return object.rotation.col[0]
+		elif self.depth_axis == 'Y' :
+			return object.rotation.col[1]
+		elif self.depth_axis == 'Z' :
+			return object.rotation.col[2]
+		else : #self.depth_axis == 'CAMERA' :
+			return -self.cameraForward
+		
+	
+	def projectVert(self, ob_info, vert, depth_min) :
 		"""	Calculate the projection of a single vert (also sets the vert.co)
 		transMat:	Object transformation matrix
 		vert:		Vert being updated
 		"""
-		co =  transMat * vert.co
-		#Find the distance offset to the max point of the mesh along camera axis
-		dir = self.getCameraAxis(co)
-		#Ray cast:
-		(loc, nor, ind, dist) = self.bvh.ray_cast(co, dir, 100000)
+		#Fetch project location:
+		loc = ob_info.proj_info[vert.index][0]
+		#Fetch project dir:
+		if self.ortho :
+			dir = self.cameraForward
+		else :
+			dir = (ob_info.position_data[vert.index] - self.cameraPos)
+			dir.normalize()
+		
+		offset = (ob_info.vert_offset[vert.index] - depth_min)
+		
+		#Deselect all
+		vert.select_set(False)
 		#If intersection occured project it
 		if loc is not None:
-			offset = -(depthDist - self.camAxis[2].dot(co))
-			vert.co = loc + dir * offset
-			proj_list[vert.index] = (loc, nor) #Store projection point and normal
-			vert.select_set(False)
-			return True
-		#else:
-		non_proj.append(vert)
-		vert.select_set(True)
-		return False
-	
-	def projectClosestConnect(self, transMat, vert, depthDist, proj_list) :
-		co =  transMat * vert.co
-		for edge in vert.link_edges :
-			o_vert_ind = edge.other_vert(vert).index
-			if proj_list[o_vert_ind][0] is not None :
-				dir = self.getCameraAxis(co)
-				rel = proj_list[o_vert_ind][1].dot(dir) #Relation between ray dir and plane normal.
-				if abs(rel) <  self.bias:
-					continue
-				#Plane d value:
-				d = -proj_list[o_vert_ind][1].dot(proj_list[o_vert_ind][0])
-				#Calculate distance
-				dist = (-d - proj_list[o_vert_ind][1].dot(co)) / rel
-				
-				offset = -(depthDist - self.camAxis[2].dot(co))
-				#project
-				vert.co = co + dir * (dist + offset)
-				return True
-		return False
-	
-	def orientation(self, ob) :
-		loc, meshRot, sca = ob.matrix_world.decompose()
-		meshRot = meshRot.to_matrix()
-		
-		#Calc rotation
-		if self.proj_type == 'AXISALIGNED' :
-			rot = self.cameraRot * alignRotationMatrix(self.cameraRotInv * meshRot)
-		elif self.proj_type == 'ZISUP' :
-			rot = self.cameraRot * calculateXYPlaneRot(meshRot.transposed(), self.camAxis)
-		else : #self.proj_type == 'CAMERA' :
-			rot = meshRot
-		#Assemble orientation matrix:
-		mat = Matrix.Translation(loc) * (rot * scaleMatrix(sca, 3)).to_4x4()
-		#mat[3].xyz = loc
-		return mat
-		
-	def getCameraAxis(self, target) :
-		"""	Calculates the projection ray direction
-		"""
-		if self.ortho :
-			return self.camAxis[2]
-		else :
-			dir = target - self.cameraPos
-			dir.normalize()
-			return dir	
-			
+			vert.co = loc - dir * offset
+			return True, False #Projection success
+		else:
+			#If projection failed search edges and see if connect projection point can be used instead:
+			for edge in vert.link_edges :
+				o_vert_ind = edge.other_vert(vert).index
+				loc = ob_info.proj_info[o_vert_ind][0]
+				if loc is not None : #Loc is none if the vert projection failed
+					nor = ob_info.proj_info[o_vert_ind][1] #Normal of the face projected onto
+					rel = nor.dot(dir) #Relation between ray dir and plane normal.
+					if abs(rel) <  self.bias:
+						continue #No face perpendicular to our projection dir
+					#Plane d value:
+					d = -nor.dot(loc)
+					#Calculate distance to plane
+					vert_pos = ob_info.position_data[vert.index]
+					dist_plane = (-d - nor.dot(vert_pos)) / rel
+					vert.co = vert_pos + dir * (dist_plane - offset)
+					#Select verts that used closest
+					vert.select_set(True)
+					return True, True #Projected but used connected projection value todo so
+		return False, False #Projection failed
+					
 class SourceMesh :
-	def __init__(self, object):
+	def __init__(self, object, settings):
 		self.name = object.name
-		self.matrix_world = object.matrix_world.copy()
-		self.bmesh = createBmesh(object)
-		self.bmesh_gen = None
+		self.translation, self.rotation, self.scale = object.matrix_world.decompose()
+		self.rotation = self.rotation.to_matrix()
+		self.bmesh = createBmesh(object, object.matrix_world)
+		if_scaleInversedFlipNormals(self.bmesh, self.scale)
+		#Store position info in world space
+		self.position_data = [vert.co.copy() for vert in self.bmesh.verts]
+		self.AABB = getBoundBox(object)
+		self.volume = getBoundBoxVolume(object)
+		self.vert_offset = None #List of vert offsets from base
+		self.proj_info = None #Vert projection result
+		
+	def calcOffset(self, depthAxis, min_val) :
+		"""
+		Calculate the distance from each vertex to a defined plane, stores it in an array.
+		"""
+		#Do the depth comparison in local space
+		self.vert_offset = [depthAxis.dot(pos) for pos in self.position_data]
+		for dist in self.vert_offset :
+			min_val = min(dist, min_val)
+		return min_val
+	
+	def projectVertOrtho(self, dir, bvh) :
+		"""
+		Gathers projection data using orthogonal setting
+		"""
+		#Ray cast: (loc, nor, ind, dist) 
+		self.proj_info = [ bvh.ray_cast(loc, dir, 100000) for loc in self.position_data]
+	def projectVertPersp(self, camPos, bvh) :
+		"""
+		Gathers projection data using perspective setting
+		"""
+		#Ray cast: (loc, nor, ind, dist) 
+		self.proj_info = [bvh.ray_cast(loc, (loc - camPos).normalized(), 100000) for loc in self.position_data]
+	
 	
 	def __del__(self) :
-		if self.bmesh_gen is not None :
-			self.bmesh_gen.free()
 		self.bmesh.free()
-def calculateXYPlaneRot(meshAxis, camAxis) :
-	"""	Finds the rotation of the mesh on the camera X,Y plane 
+def findClosestAxis(meshRot, axis) :
 	"""
-	xAxis = meshAxis[0] - meshAxis[0].dot(camAxis[2]) * camAxis[2]
-	xAxis.normalize()
-	x = xAxis.dot(camAxis[0])
-	y = xAxis.dot(camAxis[1])
+	Finds the mesh rot axis closest to the defined axis
+	"""
+	x = axis.dot(meshRot.col[0])
+	y = axis.dot(meshRot.col[1])
+	z = axis.dot(meshRot.col[2])
 	
-	angle = atan2(y,x)
-	return Matrix.Rotation(angle, 3, Vector((0,0,1))) #Use camAxis[2] if the rotation is applied in world space opposed to camera space
-	
-def alignRotationMatrix(rotMat) :
-	"""
-	Aligns the axis with largest Z component to (0,0,1) and orthonormalizes the other two axes.
-	"""
-	#Find axis with largest Z component and orthonormalize the other basis vectors to it:
-	if abs(rotMat[2][2]) > max(abs(rotMat[1][2]), abs(rotMat[0][2])) :
-		#Z axis is depth:
-		rotMat[2] = Vector((0,0,sign(rotMat[2][2])))
-		rotMat[2], rotMat[0], rotMat[1] = orthoNormalizeVec3(rotMat[2], rotMat[0], rotMat[1])
-	elif abs(rotMat[1][2]) > abs(rotMat[0][2]) :
-		#Y axis is depth:
-		rotMat[1] = Vector((0,0,sign(rotMat[1][2])))
-		rotMat[1], rotMat[0], rotMat[2] = orthoNormalizeVec3(rotMat[1], rotMat[0], rotMat[2])
+	if abs(x) > max(abs(y), abs(z)) :
+		return meshRot.col[0] * sign(x)
+	elif abs(y) > abs(z) :
+		return meshRot.col[1] * sign(y)
 	else :
-		#X axis is depth:
-		rotMat[0] = Vector((0,0,sign(rotMat[0][2])))
-		rotMat[0], rotMat[1], rotMat[2] = orthoNormalizeVec3(rotMat[0], rotMat[1], rotMat[2])
-	return rotMat			
+		return meshRot.col[2] * sign(z)
+	
 					
