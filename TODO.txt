@@ -1,0 +1,3 @@
+Todo:
+
+Extend project to active to individual objects.
