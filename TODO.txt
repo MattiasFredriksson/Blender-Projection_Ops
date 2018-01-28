@@ -1,3 +1,5 @@
-Todo:
+Changelog/Todo
+Guide: x -> complete, - -> todo, o -> idea/maybe not
 
-Extend project to active to individual objects.
+x Extend project to active to individual objects.
+- Fix issue where objects are projected 'through' the object as vertices are originally placed under the surface.
