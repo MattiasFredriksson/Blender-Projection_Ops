@@ -1,5 +1,7 @@
 Changelog/Todo
-Guide: x -> complete, - -> todo, o -> idea/maybe not
+Guide: # -> function/related to, x -> complete, - -> todo, o -> idea/maybe not
+
+#Project mesh(es) onto active:
 
 x Extend project to active to individual objects.
 - Fix issue where objects are projected 'through' the object as vertices are originally placed under the surface.
