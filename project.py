@@ -1,4 +1,4 @@
-#  uv_project.py (c) 2016 Mattias Fredriksson
+#  project.py (c) 2016 Mattias Fredriksson
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -30,55 +30,57 @@ from bpy.props import * #Property objects
 class ProjectMesh(bpy.types.Operator):
 	bl_idname = "mesh.project_onto_selected_mesh"
 	bl_label = "Project Mesh(es) onto Active"
-	bl_info = "Projects a selected mesh(es) onto the active mesh"
+	bl_info = "Projects selected mesh(es) onto the active selected mesh"
 	bl_options = {'REGISTER', 'UNDO'}
-	
+
 	depth_axis_enum = [
-		("Z", "Z", "The objects Z axis will be used", 0),
-		("Y", "Y", "The objects Y axis will be used", 1),
-		("X", "X", "The objects X axis will be used", 2),
-		("CAMERA", "View", "The camera forward axis will determine the offset from the surface", 3),
-		("CLOSEST", "Closest Axis", "The closest local axis to the camera view will determine the surface offset", 4),
+		("Z", "Z", "The object's positive Z orientation axis will be used.", 0),
+		("Y", "Y", "The object's positive Y orientation axis will be used.", 1),
+		("X", "X", "The object's positive X orientation axis will be used.", 2),
+		("CAMERA", "View", "The camera forward axis determines the offset from the surface.", 3),
+		("CLOSEST", "Closest Axis", "The object's axis with the least angle to the camera view direction will determine the surface offset.", 4),
 		]
 	largest_obj_enum = [
-		("VOLUME", "Volume", "The object with the largest bounding box volume", 1),
-		("VERTCOUNT", "Vertex Count", "The object with the most vertices", 2),
+		("VOLUME", "Volume", "Parent is determined by the object with the largest bounding box volume.", 1),
+		("VERTCOUNT", "Vertex Count", "Parent is determined by the object with the most vertices.", 2),
+		("SINGLE", "Individual", "Each object is treated individually, and does not relate to the other objects.", 3)
 		]
-	
+
 	displayExecutionTime = False
-	
-	depth_axis = EnumProperty(items=depth_axis_enum, 
-			name = "Depth Axis",
-            description="Select the axis that determines the offset from the surface for each vertex (local axis is related to parent object). ",
+
+	depth_axis = EnumProperty(items=depth_axis_enum,
+			name = "Axis",
+            description="Select the axis for which the distance to the surface will be measured in. Each vertex will be placed at the same offset, from the surface, as the distance to the furthest vertex on the axis. Using an object's orientation axis is usefull to better fit to the surface aslong the vertices are oriented accordingly (specifically if the object has a 'floor' of coplanar vertices orthogonal to the axis). If multiple mesh object's are selected the functions for the local axis is related to parent object. ",
 			default = 'CLOSEST',)
-	largest_obj = EnumProperty(items=largest_obj_enum, 
+	largest_obj = EnumProperty(items=largest_obj_enum,
 			name = "Selection Parent",
-            description="Determines which object's depth/offset axis is used with a local axis setting",)
+            description="Determines how selected objects relate to each other, if selection should be projected as a group select a parent function. The 'children' will inherit parameters from the parent object determined by the function.",
+			default = 'SINGLE',)
 	depthOffset = FloatProperty(name="Surface Offset",
             description="Move the projection closer/away from target surface by a fixed amount (along neg. view forward axis)",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
-	bias = FloatProperty(name="Intersection Bias",
-            description="Error marginal for intersection tests, can solve intersection problems",
+	bias = FloatProperty(name="Intersection Epsilon",
+            description="Error marginal for intersection tests, can solve intersection problems where vertices are projected through edges.",
             default=0.00001, min=0.00001, max=1, step=1, precision=4)
-	
+
 	def invoke(self, context, event) :
-		""" 
+		"""
 		Invoke stage, gathering information of the projection objects:
 		"""
 		start_time = time.time()
 		#Fetch camera orientations:
-		self.cameraRot = findViewRotation(context) 
+		self.cameraRot = findViewRotation(context)
 		self.cameraRotInv = self.cameraRot.transposed()
 		self.cameraForward = -self.cameraRot.col[2]
 		self.cameraPos = findViewPos(context)
 		self.ortho = viewTypeOrtho(context)
 		self.lastOffset = self.depthOffset
-		
+
 		#Params that will be set:
 		self.ob_list = None #Objects that will be projected
 		self.child_list = None #List of child objects transformed around the parent.
 		self.parent_ob = None #The parent object
-	
+
 		target_ob = context.active_object
 		#Verify target
 		if not target_ob:
@@ -96,34 +98,34 @@ class ProjectMesh(bpy.types.Operator):
 				self.ob_list.append(SourceMesh(ob, self))
 		if len(self.ob_list) == 0 :
 			if len(ob_sources) > 0 :
-				self.report({'ERROR'}, "Only mesh objects can be projected, need atleast one project source and an active object as projection target")
+				self.report({'ERROR'}, "Only mesh objects can be projected, need atleast one source mesh object and an active mesh object as projection target")
 			else :
-				self.report({'ERROR'}, "No selection to project found, make sure to select one project source and an active object as projection target")
+				self.report({'ERROR'}, "No selection to project found, make sure to select one source mesh object and an active mesh object as projection target")
 			return {'CANCELLED'}
 		#Generate projection info
 		bvh = generate_BVH(target_ob, context.scene, self.bias)
 		self.target_ob = target_ob.name
-		
+
 		#Generate project data
 		for ob in self.ob_list :
 			if self.ortho :
 				ob.projectVertOrtho(self.cameraForward, bvh)
 			else :
 				ob.projectVertPersp(self.cameraPos, bvh)
-		
+
 		if ProjectMesh.displayExecutionTime :
 			self.report({'INFO'}, "Finished, invoke stage execution time: %.2f seconds ---" % (time.time() - start_time))
 		return self.execute(context)
-	
+
 	def execute(self, context):
 		"""
 		Project each mesh onto active object
 		"""
 		start_time = time.time()
-		
+
 		offset_change =  self.depthOffset != self.lastOffset
-		
 		self.lastOffset = self.depthOffset
+		#If some setting other then the offset was changed project/re-project the mesh data.
 		if not offset_change:
 			self.report({'INFO'}, "Executing: Mesh Projection")
 			#Project the meshes with the gathered information
@@ -134,28 +136,37 @@ class ProjectMesh(bpy.types.Operator):
 		#Set offset move it on camera forward axis:
 		self.depthChange(context.scene)
 		return {'FINISHED'}
-		
+
 	def depthChange(self, scene) :
 		"""	Moves the objects along camera z axis
 		"""
 		mat = Matrix.Translation(self.cameraForward * -self.depthOffset)
-		for ob in self.ob_list : 
+		for ob in self.ob_list :
 			if ob.bmesh is not None:
 				setNamedMesh(ob.bmesh, ob.name, scene, mat)
-	
+
 	def project(self, scene) :
 		"""	Project the mesh(es) onto the target
 		"""
-		
-		#Find our parent object
-		parent_ob, child_list = self.findParent()
-		
-		#Find the depth axis
-		depth_axis = self.getDepthAxis(parent_ob)
-		#Calculate the offset of each vertex
-		min_offset = self.calcOffset(depth_axis)
-						
-		for ob in self.ob_list : 			
+
+		#If objects are treated as a group.
+		if self.largest_obj != 'SINGLE' :
+			#Find our parent object
+			parent_ob, child_list = self.findParent()
+			#Find the depth axis
+			depth_axis = self.getDepthAxis(parent_ob)
+			#Calculate the offset of each vertex in all objects
+			min_offset = self.calcOffset(depth_axis)
+		#endif
+
+		for ob in self.ob_list :
+			#If objects are treated individually
+			if self.largest_obj == 'SINGLE' :
+				#Find the depth axis
+				depth_axis = self.getDepthAxis(ob)
+				#Calculate the offset of each vertex in the object
+				min_offset = self.calcIndividualOffset(ob, depth_axis)
+			#end if
 			#Project the vertices:
 			count = 0
 			used_closest = 0
@@ -163,8 +174,9 @@ class ProjectMesh(bpy.types.Operator):
 				success, used_con = self.projectVert(ob, vert, min_offset)
 				count += success
 				used_closest += used_con
-			
-			#Finalize the projection by assigning the bmesh into the blender object 
+			#end for
+
+			#Finalize the projection (changes) by updating the blender object with the bmesh
 			if count > 0 :
 				ob.bmesh.select_flush(False)
 				setNamedMesh(ob.bmesh, ob.name, scene, Matrix.Translation(self.cameraForward * -self.depthOffset))
@@ -175,8 +187,9 @@ class ProjectMesh(bpy.types.Operator):
 					self.report({'WARNING'}, "Mesh: %s has %d vertices that did not project succesfully. Validate that the mesh is covered by the target" %(ob.name, nonProjCount))
 			else :
 				self.report({'WARNING'}, "Mesh: %s had no vertices projected onto the target. Validate that the mesh is covered by the target" %(ob.name))
+			#end ifelse
 	#Done
-	
+
 	def findParent(self) :
 		"""
 		Finds the parent deppending on setting
@@ -204,16 +217,21 @@ class ProjectMesh(bpy.types.Operator):
 		#Store info
 		return parent_ob, child_list
 	#End
-	
+
 	def calcOffset(self, depthAxis) :
 		"""
-		Calculates the offset of each vert 
+		Calculates the offset of each vert
 		"""
 		min_val = sys.float_info.max
 		for ob in self.ob_list :
 			min_val = ob.calcOffset(depthAxis, min_val)
 		return min_val
-				
+	def calcIndividualOffset(self, ob, depthAxis) :
+		"""
+		Calculates the offset of each vert
+		"""
+		return ob.calcOffset(depthAxis, sys.float_info.max)
+
 	def getDepthAxis(self, object) :
 		"""
 		Finds the axis in world space used that determines the depth offset.
@@ -229,8 +247,8 @@ class ProjectMesh(bpy.types.Operator):
 			return object.rotation.col[2]
 		else : #self.depth_axis == 'CAMERA' :
 			return -self.cameraForward
-		
-	
+
+
 	def projectVert(self, ob_info, vert, depth_min) :
 		"""	Calculate the projection of a single vert (also sets the vert.co)
 		transMat:	Object transformation matrix
@@ -244,9 +262,9 @@ class ProjectMesh(bpy.types.Operator):
 		else :
 			dir = (ob_info.position_data[vert.index] - self.cameraPos)
 			dir.normalize()
-		
+
 		offset = (ob_info.vert_offset[vert.index] - depth_min)
-		
+
 		#Deselect all
 		vert.select_set(False)
 		#If intersection occured project it
@@ -273,7 +291,7 @@ class ProjectMesh(bpy.types.Operator):
 					vert.select_set(True)
 					return True, True #Projected but used connected projection value todo so
 		return False, False #Projection failed
-					
+
 class SourceMesh :
 	def __init__(self, object, settings):
 		self.name = object.name
@@ -287,7 +305,7 @@ class SourceMesh :
 		self.volume = getBoundBoxVolume(object)
 		self.vert_offset = None #List of vert offsets from base
 		self.proj_info = None #Vert projection result
-		
+
 	def calcOffset(self, depthAxis, min_val) :
 		"""
 		Calculate the distance from each vertex to a defined plane, stores it in an array.
@@ -297,21 +315,21 @@ class SourceMesh :
 		for dist in self.vert_offset :
 			min_val = min(dist, min_val)
 		return min_val
-	
+
 	def projectVertOrtho(self, dir, bvh) :
 		"""
 		Gathers projection data using orthogonal setting
 		"""
-		#Ray cast: (loc, nor, ind, dist) 
+		#Ray cast: (loc, nor, ind, dist)
 		self.proj_info = [ bvh.ray_cast(loc, dir, 100000) for loc in self.position_data]
 	def projectVertPersp(self, camPos, bvh) :
 		"""
 		Gathers projection data using perspective setting
 		"""
-		#Ray cast: (loc, nor, ind, dist) 
+		#Ray cast: (loc, nor, ind, dist)
 		self.proj_info = [bvh.ray_cast(loc, (loc - camPos).normalized(), 100000) for loc in self.position_data]
-	
-	
+
+
 	def __del__(self) :
 		self.bmesh.free()
 def findClosestAxis(meshRot, axis) :
@@ -321,12 +339,10 @@ def findClosestAxis(meshRot, axis) :
 	x = axis.dot(meshRot.col[0])
 	y = axis.dot(meshRot.col[1])
 	z = axis.dot(meshRot.col[2])
-	
+
 	if abs(x) > max(abs(y), abs(z)) :
 		return meshRot.col[0] * sign(x)
 	elif abs(y) > abs(z) :
 		return meshRot.col[1] * sign(y)
 	else :
 		return meshRot.col[2] * sign(z)
-	
-					
