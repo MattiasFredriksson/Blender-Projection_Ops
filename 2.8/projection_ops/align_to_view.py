@@ -26,14 +26,13 @@ from .funcs_math import *
 from .funcs_blender import *
 from .axis_align import *
 from bpy.props import * #Property objects
-	
 class AlignSelection(bpy.types.Operator):
 	bl_idname = "mesh.align_selection_view"
 	bl_label = "Align Selection to View"
 	bl_info = "Aligns the mesh rotation to the current view"
 	bl_options = {'REGISTER', 'UNDO'}
-	
-	
+
+
 	rot_type_enum = [
 		("Z", "Z", "Selection will be rotated so the Z axis is facing the camera", 0),
 		("Y", "Y", "Selection will be rotated so the Y axis is facing the camera", 1),
@@ -46,30 +45,30 @@ class AlignSelection(bpy.types.Operator):
 		("VOLUME", "Volume", "Use the object with largest bounding box", 1),
 		("ACTIVE", "Active", "Use the active object as the parent", 2),
 		]
-	rot_type = EnumProperty(items=rot_type_enum, 
+	rot_type : EnumProperty(items=rot_type_enum,
 			name = "Alignment",
             description="Determines the axis of the parent object that will be aligned to the camera view. ",
 			default = 'CLOSEST',)
-	parent_obj = EnumProperty(items=parent_obj_enum, 
+	parent_obj : EnumProperty(items=parent_obj_enum,
 			name = "Selection Parent",
             description="Determines which selected object that the other objects alignment will relate to",
 			default = 'ACTIVE',)
-	exclude_active = BoolProperty(name = "Exclude active object",
+	exclude_active : BoolProperty(name = "Exclude active object",
             description="Exclude the active object from selection, and disallows it from parenting the selection (usefull if it's a projection target selection)",
 			default=False)
-			
+
 	def invoke(self, context, event) :
-		
+
 		return self.execute(context)
-	
+
 	def execute(self, context):
-		
+
 		#Fetch camera orientations:
-		self.cameraRot = findViewRotation(context) 
+		self.cameraRot = findViewRotation(context)
 		self.cameraRotInv = self.cameraRot.transposed()
 		self.cameraPos = findViewPos(context)
 		self.ortho = viewTypeOrtho(context)
-		
+
 		ob_list = context.selected_objects
 		#Remove active object now (no need to check for it later...)
 		if self.exclude_active :
@@ -78,7 +77,7 @@ class AlignSelection(bpy.types.Operator):
 			except:
 				pass #Not there...
 		parent, child_list = self.findParent(context, ob_list)
-		
+
 		#Invert parent world matrix
 		parent_world_inv = parent.matrix_world.inverted()
 		#Find parent orientation
@@ -86,14 +85,14 @@ class AlignSelection(bpy.types.Operator):
 		for ob in child_list :
 			ob.matrix_world = self.orientation(ob, parent_world_inv, parent_mat)
 		parent.matrix_world = parent_mat
-	
+
 		return {'FINISHED'}
-		
+
 	def parent_orientation(self, ob) :
 		"""
 		Finds the orientation matrix of the parent object.
 		"""
-		
+
 		loc, meshRot, sca = ob.matrix_world.decompose()
 		meshRot = meshRot.to_matrix()
 		#Calc rotation
@@ -101,7 +100,7 @@ class AlignSelection(bpy.types.Operator):
 			rot = self.cameraRot * axisAlignRotationMatrix(self.cameraRotInv * meshRot)
 		#Axis alignements: Axis Rot is rotated with the objects rotation difference on the plane parallell to cameras XY plane,
 		#This generates the rotation in the cameras rotation space (camera rotation is applied last).
-		elif self.rot_type == 'Z' : 
+		elif self.rot_type == 'Z' :
 			rot = Matrix.Identity(3) #Mesh face inverse camera
 			rot = calculateRotXYPlane_baseX(meshRot,self.cameraRot) * rot #Find rotation difference on XY plane
 			rot = self.cameraRot * rot #Rotate to camera space
@@ -118,17 +117,17 @@ class AlignSelection(bpy.types.Operator):
 			rot = self.cameraRot * alignRotationMatrix(self.cameraRotInv * meshRot)
 		#Assemble orientation matrix:
 		return Matrix.Translation(loc) * (rot * scaleMatrix(sca, 3)).to_4x4()
-		
+
 	def orientation(self, object, parent_world_inv, parent_mat) :
 		"""
 		Func finding the orientation in relation to the parent object.
 		object:				Object to calculate matrix for
 		parent_world_inv:	Parent objects world matrix inverse
 		parent_mat:			Calculated final transform for parent object
-		"""		
+		"""
 		return parent_mat * parent_world_inv * object.matrix_world
-		
-	
+
+
 	def findParent(self, context, ob_list) :
 		"""
 		Finds the parent deppending on setting
@@ -148,7 +147,7 @@ class AlignSelection(bpy.types.Operator):
 		#Parent: Obj with largest OBB Volume
 		else : #self.parent_obj == 'VOLUME' :
 			for ob in ob_list :
-				volume = getBoundBoxVolume(ob) 
+				volume = getBoundBoxVolume(ob)
 				if volume > value :
 					value = volume
 					parent_ob = ob
@@ -161,7 +160,7 @@ class AlignSelection(bpy.types.Operator):
 		return parent_ob, child_list
 
 def calculateRotXYPlane_baseX(meshAxis, camAxis) :
-	""" Finds the rotation on the camera X,Y plane by calculating the angle to mesh X axis projected onto the plane 
+	""" Finds the rotation on the camera X,Y plane by calculating the angle to mesh X axis projected onto the plane
 	"""
 	#Project onto XY plane and normalize
 	xAxis = meshAxis.col[0] -  meshAxis.col[0].dot(camAxis.col[2]) * camAxis.col[2]
@@ -179,10 +178,10 @@ def calculateRotXYPlane_baseY(meshAxis, camAxis) :
 	yAxis.normalize()
 	x = yAxis.dot(camAxis.col[0])
 	y = yAxis.dot(camAxis.col[1])
-	
+
 	angle = atan2(y,x)
 	return Matrix.Rotation(angle - half_pi, 3, Vector((0,0,1)))  #Use camAxis[2] if not in camera space.
-	
+
 def alignRotationMatrix(rotMat) :
 	"""
 	Aligns the axis with largest Z component to (0,0,1) and orthonormalizes the other two axes.
@@ -201,4 +200,3 @@ def alignRotationMatrix(rotMat) :
 		rotMat.col[0] = Vector((0,0,sign(rotMat.col[0][2])))
 		rotMat.col[0], rotMat.col[1], rotMat.col[2] = orthoNormalizeVec3(rotMat.col[0], rotMat.col[1], rotMat.col[2])
 	return rotMat
-	

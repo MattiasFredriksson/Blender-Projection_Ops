@@ -48,18 +48,18 @@ class ProjectMesh(bpy.types.Operator):
 
 	displayExecutionTime = False
 
-	depth_axis = EnumProperty(items=depth_axis_enum,
+	depth_axis: EnumProperty(items=depth_axis_enum,
 			name = "Axis",
             description="Select the axis for which the distance to the surface will be measured in. Each vertex will be placed at the same offset, from the surface, as the distance to the furthest vertex on the axis. Using an object's orientation axis is usefull to better fit to the surface aslong the vertices are oriented accordingly (specifically if the object has a 'floor' of coplanar vertices orthogonal to the axis). If multiple mesh object's are selected the functions for the local axis is related to parent object. ",
 			default = 'CLOSEST',)
-	largest_obj = EnumProperty(items=largest_obj_enum,
+	largest_obj: EnumProperty(items=largest_obj_enum,
 			name = "Selection Parent",
             description="Determines how selected objects relate to each other, if selection should be projected as a group select a parent function. The 'children' will inherit parameters from the parent object determined by the function.",
 			default = 'SINGLE',)
-	depthOffset = FloatProperty(name="Surface Offset",
+	depthOffset: FloatProperty(name="Surface Offset",
             description="Move the projection closer/away from target surface by a fixed amount (along neg. view forward axis)",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
-	bias = FloatProperty(name="Intersection Epsilon",
+	bias: FloatProperty(name="Intersection Epsilon",
             description="Error marginal for intersection tests, can solve intersection problems where vertices are projected through edges.",
             default=0.00001, min=0.00001, max=1, step=1, precision=4)
 

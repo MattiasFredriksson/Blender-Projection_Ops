@@ -28,54 +28,57 @@ class UVProjectMesh(bpy.types.Operator):
 	bl_label = "Project Mesh onto UV Surface"
 	bl_info = "Projects a selected mesh object(s) onto the surface of the active mesh, fitting the mesh over the uvmap of the target"
 	bl_options = {'REGISTER', 'UNDO'}
-	
+
 	proj_type_enum = [
 		("AXISALIGNED", "Axis Aligned", "The mesh axis with smallest angle toward the camera will be placed up on the projection surface", 1),
 		("CAMERA", "Camera View", "The mesh will be projected onto the surface using the camera axis as up. Depth is relative to the furthest and closest point to the camera", 2),
 		("ZISUP", "Z is Up", "Mesh will be placed on the surface with the Z axis pointing up", 3),
 		]
-	
-	proj_type = EnumProperty(items=proj_type_enum, 
+
+	proj_type: EnumProperty(items=proj_type_enum,
 			name = "Surface Alignment",
             description="Determines how the mesh will be aligned on the surface, primarily the axis pointing up/away from the surface. It also affects the x/y axis alignment and how the projection target area is determined.",)
-	smooth = BoolProperty(name = "Smooth",
+	smooth: BoolProperty(name = "Smooth",
             description="If the mesh will be smoothed over the target surface",
 			default=True)
-	keepRelative = BoolProperty(name = "Keep Relative Scale",
+	keepRelative: BoolProperty(name = "Keep Relative Scale",
             description="Scales the surface mapping to the same size ratio of the projected mesh",
 			default=False)
-	scalar = FloatProperty(name="Scale",
+	scalar: FloatProperty(name="Scale",
             description="Scale the surface mapping on the projection target",
             default=1,  soft_min= 0.01, soft_max=10, step=2, precision=2)
-	depthAdd = FloatProperty(name="Surface Offset",
+	depthAdd: FloatProperty(name="Surface Offset",
             description="Move the projection closer/away from target surface by a fixed amount",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
-	moveXY = FloatVectorProperty(name="Move", 
-			description="Move the UV surface mapping on the projection target", 
+	moveXY: FloatVectorProperty(name="Move",
+			description="Move the UV surface mapping on the projection target",
 			default=(0.0, 0.0), size=2, step=1, precision=4)
-	rotation =  FloatProperty(name="Rotate",
+	rotation:  FloatProperty(name="Rotate",
             description="Rotate the object over the surface mapping",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=8)
-	scalarXYZ = FloatVectorProperty(name="Scale Separated", 
-			description="Scale each X,Y surface mapping component separately or scale mesh Z axis", 
+	scalarXYZ: FloatVectorProperty(name="Scale Separated",
+			description="Scale each X,Y surface mapping component separately or scale mesh Z axis",
 			default=(1.0, 1.0, 1.0), soft_min= 0.01, soft_max=10, size=3, step=2)
-	partitions_per_face = FloatProperty(name="Partitions per face",
+	partitions_per_face: FloatProperty(name="Partitions per face",
             description="Higher value increases invoke stage but execute (updates) runs faster. Higher value increases the numbers of partitions applied to the uv map",
             default=0.5, min=0.1, max=20, step=100)
-	biasValue = FloatProperty(name="Intersection Bias",
+	biasValue: FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
             default=0.00001, min=0.00001, max=1, step=1)
-	printExecTime = BoolProperty(name = "Print Execution Time",
+	printExecTime: BoolProperty(name = "Print Execution Time",
             description="Prints execution time to the information panel, mutes warning in the last report panel",
 			default=False)
-		
+
 	def __init__(self):
 		return
-		
+
 	def __del__(self):
 		#Destructor cleanup
-		self.projData.free()
-	
+		try:
+			self.projData.free()
+		except AttributeError:
+			pass
+
 	def update_setting(self) :
 		#Update setting parameters, static object:
 		Setting.bias = self.biasValue
@@ -88,25 +91,25 @@ class UVProjectMesh(bpy.types.Operator):
 		Setting.keepRelative = self.keepRelative
 		Setting.partitions_per_face = self.partitions_per_face
 		TriBias.bias = self.biasValue
-	
+
 	def invoke(self, context, event):
 		"""
 		Generate projection information required to project each mesh.
 		Note* blender mesh object references gets corrupted between execute stages.
 		"""
-		
+
 		#Execute stage 1: Gather projection data
 		start_time = time.time()
 		self.update_setting()
 		self.report({'INFO'}, "Executing: Mesh Projection UV")
-		
+
 		# Get the active object and validate as mesh
 		ob_target = context.active_object
 		ob_sources = context.selected_objects
-		
+
 		#Verify a list of objects to project.
 		proj_list = []
-		for ob in ob_sources : 
+		for ob in ob_sources :
 			if ob.type == 'MESH' and ob != ob_target :
 				proj_list.append(ob)
 		if len(proj_list) == 0 :
@@ -115,8 +118,8 @@ class UVProjectMesh(bpy.types.Operator):
 			else :
 				self.report({'ERROR'}, "Not enough mesh objects selected, need atleast one source and one target object")
 			return {'CANCELLED'}
-			
-			
+
+
 		#Find 3d view camera rotation from context:
 		cameraRot = findViewRotation(context)
 		cameraRotInv = cameraRot.transposed()
@@ -128,14 +131,14 @@ class UVProjectMesh(bpy.types.Operator):
 		if not self.projData.generateTargetData(ob_target, context):
 			#Error generating target data.
 			return {'CANCELLED'}
-			
+
 		#Generate projection information of the meshes that is being projected:
 		self.projData.generateSourceData(proj_list, context.scene)
 		if self.printExecTime :
 			self.report({'INFO'}, "Finished, invoke stage execution time: %.2f seconds ---" % (time.time() - start_time))
 		return self.execute(context)
-		
-	
+
+
 	def execute(self, context):
 		"""
 		Project each mesh according to the gathered information and the settings.
@@ -145,7 +148,7 @@ class UVProjectMesh(bpy.types.Operator):
 		#Copy settings for comparisions:
 		setting = Setting.copy()
 		#Update settings
-		self.update_setting()	
+		self.update_setting()
 		#If axis alignment setting is changed new source data needs to be generated:
 		if setting.proj_type != self.proj_type :
 			self.projData.free_source()
