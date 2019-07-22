@@ -30,12 +30,30 @@ bl_info = {
 	'tracker_url': "",
 	'category': 'Mesh'}
 
+import sys
+def force_reload():
+	from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
+	import importlib
+	try:
+		importlib.reload(funcs_blender)
+	except:
+		print('Error:', sys.exc_info())
+	importlib.reload(funcs_math)
+	importlib.reload(funcs_tri)
+	importlib.reload(proj_data)
+	importlib.reload(bound)
+	importlib.reload(partition_grid)
+	importlib.reload(uv_project)
+	importlib.reload(project)
+	importlib.reload(mesh_mirror_script)
+	importlib.reload(align_to_view)
+	importlib.reload(plane)
+	importlib.reload(axis_align)
+#end force_reload()
 def reload():
 	#Script reloading
-	try:
+	if "bpy" in locals():
 		import importlib
-		if "funcs_blender" in locals():
-			importlib.reload(funcs_blender)
 		if "funcs_math" in locals():
 			importlib.reload(funcs_math)
 		if "funcs_tri" in locals():
@@ -59,7 +77,7 @@ def reload():
 		if "axis_align" in locals():
 			importlib.reload(axis_align)
 	#Script loading
-	except:
+	else:
 		from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
 #end reload()
 reload()
@@ -89,4 +107,4 @@ def unregister():
 
 
 if __name__ == "__main__":
-		register()
+	register()

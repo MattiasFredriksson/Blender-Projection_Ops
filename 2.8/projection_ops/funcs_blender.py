@@ -12,8 +12,8 @@ def findViewRotation(context) :
 	if context.area.type == 'VIEW_3D':
 		cQuat = context.area.spaces[0].region_3d.view_rotation
 		return cQuat.to_matrix()
-	return Matrix.Identity(3)		
-	
+	return Matrix.Identity(3)
+
 def findViewForward(context) :
 	"""
 	Function that finds the camera orientation from a 3D view context
@@ -21,7 +21,7 @@ def findViewForward(context) :
 	if context.area.type == 'VIEW_3D':
 		cQuat = context.area.spaces[0].region_3d.view_rotation
 		#Return camera rot as 4x4 matrix:
-		return cQuat * Vector((0,0, -1))
+		return cQuat @ Vector((0,0, -1))
 	return Vector((0,0, -1))
 def findViewPos(context) :
 	"""
@@ -30,7 +30,9 @@ def findViewPos(context) :
 	if context.area.type == 'VIEW_3D':
 		#Return camera position
 		cQuat = context.area.spaces[0].region_3d.view_rotation
-		return context.area.spaces[0].region_3d.view_location + cQuat * Vector((0,0, 1)) * context.area.spaces[0].region_3d.view_distance
+			asdkjalsdk
+		cam_off = cQuat @ Vector((0,0, 1)) * context.area.spaces[0].region_3d.view_distance
+		return context.area.spaces[0].region_3d.view_location + cam_off
 	return Vector((0,0, 0))
 
 def getUVKey(bmesh) :
@@ -38,7 +40,7 @@ def getUVKey(bmesh) :
 	Fetches the UV layer key from a bmesh
 	"""
 	return bmesh.loops.layers.uv.active
-	
+
 def viewTypeOrtho(context) :
 	""" Returns True if camera mode is orthographic
 	"""
@@ -53,7 +55,7 @@ def viewTypePersp(context) :
 		return context.area.spaces[0].region_3d.view_perspective == 'PERSP'
 	return False
 
-def getBoundBox(object) : 
+def getBoundBox(object) :
 	"""
 	Fetches the bounding box of a mesh object.
 	"""
@@ -74,19 +76,19 @@ def getBoundBoxVolume(object) :
 	point = Vector((object.bound_box[0][0],object.bound_box[0][1],object.bound_box[0][2]))
 	up = Vector((object.bound_box[4][0],object.bound_box[4][1],object.bound_box[4][2])) - point
 	side_a = Vector((object.bound_box[1][0],object.bound_box[1][1],object.bound_box[1][2])) - point
-	side_b = Vector((object.bound_box[3][0],object.bound_box[3][1],object.bound_box[3][2])) - point	
+	side_b = Vector((object.bound_box[3][0],object.bound_box[3][1],object.bound_box[3][2])) - point
 	return up.length * side_a.length * side_b.length
-	
+
 def generate_BVH(target_ob, scene, bias = 0.00001) :
 	"""
 	Generate a bvh from a mesh object
 	"""
 	#Can't create from object, transformation not applied
 	bmesh = createBmesh(target_ob, target_ob.matrix_world, True, scene, True)
-	bvh = bvhtree.BVHTree.FromBMesh(bmesh, epsilon = bias) 
+	bvh = bvhtree.BVHTree.FromBMesh(bmesh, epsilon = bias)
 	bmesh.free()
 	return bvh
-	
+
 def if_scaleInversedFlipNormals(bmesh, scaleVec) :
 	"""
 	Flips normals if there is an un-even amount of negatively scaled axis
@@ -108,7 +110,7 @@ def createBmesh(ob = None, matrix = None, triangulate = False, scene = None, app
 	"""
 
 	bm = bmesh.new()
-	
+
 	if ob is not None and ob.type == 'MESH' :
 		if applyModifier and scene is not None:
 			bm.from_object(ob, scene)
@@ -120,7 +122,7 @@ def createBmesh(ob = None, matrix = None, triangulate = False, scene = None, app
 		#Triangulate the faces!
 		if triangulate :
 			bmesh.ops.triangulate(bm, faces = bm.faces)
-		
+
 		#Some derp functions we need to call to use lists:
 		bm.verts.ensure_lookup_table()
 		bm.edges.ensure_lookup_table()
@@ -136,15 +138,15 @@ def createEmptyMeshCopy(ob, context, obTag = "_Copy", meshTag = "_CopyMesh", cop
 	obTag:			String appended to the name of the copied objects.
 	meshTag:		String appended to the name of the contained mesh object created (appended to ob name).
 	copyTransform:	True if object transform is applied to the mesh (Default: True)
-	Return:		A blender object 
+	Return:		A blender object
 	"""
-	
+
 	#Creates a copy of a mesh with relevant data, if the object is not a mesh an empty mesh will be returned.
-	
+
 	mesh = bpy.data.meshes.new(ob.name + meshTag) 		# create a new mesh with the name
 	newOb = bpy.data.objects.new(ob.name + obTag, mesh)	# create an object with that mesh
 	if	copyTransform :
-		newOb.matrix_world = ob.matrix_world			# Copy the transformation matrix of the object 
+		newOb.matrix_world = ob.matrix_world			# Copy the transformation matrix of the object
 
 	#If object is not a mesh return the empty
 	if ob.type != 'MESH':
@@ -156,7 +158,7 @@ def createEmptyMeshCopy(ob, context, obTag = "_Copy", meshTag = "_CopyMesh", cop
 	bpy.ops.object.select_all(action='DESELECT')
 	bpy.context.scene.objects.active = ob
 	newOb.select = True
-	bpy.ops.object.make_links_data(type='MODIFIERS')  						
+	bpy.ops.object.make_links_data(type='MODIFIERS')
 	return newOb
 
 def createMesh(bmesh, scene = None, matrix = None, name = "Object") :
@@ -164,7 +166,7 @@ def createMesh(bmesh, scene = None, matrix = None, name = "Object") :
 	Create a blender mesh object from a specified bmesh and context
 	bmesh:		Mesh to create a object for
 	scene:		Scene the new object will be added to
-	name:		Name of the object added 
+	name:		Name of the object added
 	"""
 	mesh = bpy.data.meshes.new(name + "_Mesh") 		# create a new mesh with the name
 	newOb = bpy.data.objects.new(name, mesh)	# create an object with that mesh
@@ -172,12 +174,12 @@ def createMesh(bmesh, scene = None, matrix = None, name = "Object") :
 		newOb.matrix_world = matrix
 	#Link to scene
 	if scene is not None :
-		scene.objects.link(newOb)  
+		scene.objects.link(newOb)
 	#Set bmesh
-	bmesh.normal_update()  	
-	bmesh.to_mesh(newOb.data)					
+	bmesh.normal_update()
+	bmesh.to_mesh(newOb.data)
 	return newOb
-	
+
 def setMesh(bmesh, ob, matrix = None) :
 	""" Update a mesh from a bmesh object
 	"""
@@ -218,14 +220,14 @@ def origin_to_geometry(object) :
 	#tmpContext = {'visible_objects': ob_list}
 	#Call operator
 	bpy.ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-	
+
 def getObject(object_name, scene = None) :
 	""" Fetch a object from it's name
 	"""
 	if scene is None :
 		return bpy.data.objects[object_name]
 	return scene.objects[object_name]
-	
+
 def deleteObject(object, scene) :
 	""" Delete a blender object that is visible in the specified scene
 	"""
