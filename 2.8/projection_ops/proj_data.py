@@ -42,7 +42,7 @@ class Setting :
 	proj_type = None
 	keepRelative = False
 	partitions_per_face = 0.25
-	
+
 	def __init__(self) :
 		self.bias = Setting.bias
 		self.smooth = Setting.smooth
@@ -53,7 +53,7 @@ class Setting :
 		self.proj_type = Setting.proj_type
 		self.keepRelative = Setting.keepRelative
 		self.partitions_per_face = Setting.partitions_per_face
-	
+
 	def copy() :
 		"""	Return a copy of the settings
 		"""
@@ -82,7 +82,7 @@ class ProjectionData :
 		self.cameraPos = cameraPos
 		self.ortho = ortho
 		self.warning = warning
-	
+
 	def free(self) :
 		self.bmesh.free()
 		self.free_source(self)
@@ -90,7 +90,7 @@ class ProjectionData :
 		for meshData in self.meshList :
 			meshData.bmesh.free()
 			meshData.bmeshSource.free()
-	
+
 	def generateTargetData(self, object, context) :
 		"""	Generates projection information for the target mesh
 		"""
@@ -101,7 +101,7 @@ class ProjectionData :
 			self.warning.report({'ERROR'}, "Active object was not a mesh. Select an appropriate mesh object as projection target")
 			return False
 		#Create a bmesh copy to project on with the modifiers applied and vertices in world space !
-		self.bmesh = createBmesh(object, object.matrix_world, True, context.scene, True)
+		self.bmesh = createBmesh(object, object.matrix_world, True, context.evaluated_depsgraph_get(), True)
 		#Find active uv layer ID and generate a grid for the uv map:
 		self.uv_lay = getUVKey(self.bmesh)
 		if self.uv_lay is None :
@@ -112,9 +112,9 @@ class ProjectionData :
 		#Generate partition grid
 		self.uv_grid = PartitionGrid2D.from_bmesh_uv(self.bmesh, self.uv_lay, 1 / Setting.partitions_per_face , Setting.bias)
 		return True
-	
+
 	def ray_cast_target(self, origin, maxDist = 10000) :
-		"""	
+		"""
 		Cast a ray on the target mesh BVH tree.
 		Returns the bmesh face, distance and the barycentric coordinates of intersection
 		"""
@@ -126,21 +126,21 @@ class ProjectionData :
 		if not valid :
 			return (None, None, None)
 		return (self.bmesh.faces[ind], dist, Vector((u,v,w)))
-	
+
 	def generateSourceData(self, ob_list, scene) :
 		"""
 		Generate the oriented bmesh and pre-calculate the projection information for a list of objects that should be projected
 		ob_list: list of objects containing the meshes that should be projected
 		"""
 		meshList = []
-		for ob in ob_list : 
+		for ob in ob_list :
 			if ob.type == 'MESH' and ob.name != self.target_ob :
 				data = self.createSourceBmesh(ob, scene)
 				if data is not None :
 					meshList.append(data)
-		self.meshList = meshList	
+		self.meshList = meshList
 		return True
-	
+
 	def createSourceBmesh(self, object, scene):
 		"""	Function that calculates the bmesh of a mesh object to be projected onto the target.
 		Calculates the rotation so that the bmesh verts is placed in origo rotated how it will be placed on the surface (mesh Z is facing up from surface)
@@ -155,24 +155,24 @@ class ProjectionData :
 			rot = Matrix.Identity(3)
 			axis = zUpFindAxis(meshRot, self.cameraAxis)
 		elif Setting.proj_type == 'CAMERA' :
-			rot = self.cameraRotInv * meshRot
+			rot = self.cameraRotInv @ meshRot
 			axis = self.cameraAxis.copy()
 		else : #Setting.proj_type == 'AXISALIGNED'
 			#Aligns the mesh to (1,0,0),... axis in camera space
-			rot = axisAlignRotationMatrix(self.cameraRotInv * meshRot)
+			rot = axisAlignRotationMatrix(self.cameraRotInv @ meshRot)
 			#Calculates the mesh axis representing our scrambled view oriented rotation, equal to:
 			#axis[0] = meshRot * rot.row[0] (X), gives the world x axis of the mesh in aligned camera view
 			#axis[1] = meshRot * rot.row[1] (Y)...
-			axis = meshRot * rot.transposed() 
-		
+			axis = meshRot @ rot.transposed()
+
 		#Create a bm mesh copy of the mesh!
-		bmesh = createBmesh(object, (rot * scaleMatrix(sca, 3)).to_4x4())
+		bmesh = createBmesh(object, (rot @ scaleMatrix(sca, 3)).to_4x4())
 		#Calculate bounds
 		bounds = self.calculateBounds(bmesh, axis, object.location, object.name)
 		if bounds is None :
 			return None
 		return SourceMeshData(bmesh, object, bounds)
-	
+
 	def projectMeshData(self, context) :
 		"""
 		Function projecting each mesh using the gathered data and updates the mesh object.
@@ -189,19 +189,19 @@ class ProjectionData :
 			bounds.move(Setting.moveXY)
 			bounds.rotate(Setting.rotation)
 			bounds.scale(Setting.scalar.xy)
-						
+
 			bmesh = meshData.bmesh
-			
+
 			i = 0
 			count_success = 0 #Keeps track of successfull verts projected
-			count_partial = 0 
+			count_partial = 0
 			for vert in bmesh.verts :
 				(success, partial_success) = self.projectVert(vert, meshData.bmeshSource.verts[i], bounds)
 				count_partial += partial_success
 				count_success += success
 				i += 1
-			
-			#Finalize the projection by assigning the bmesh into the blender object 
+
+			#Finalize the projection by assigning the bmesh into the blender object
 			#Validate one vert was projected first:
 			if count_success > 0 :
 				ob = setNamedMesh(bmesh, meshData.ob_name, context.scene, Matrix.Identity(4))
@@ -217,14 +217,14 @@ class ProjectionData :
 				self.warning.report({'WARNING'}, "Mesh: %s could not be projected." %meshData.ob_name)
 		#Finally set the origin to geometry
 		#origin_to_geometry(obList)
-			
+
 	def projectVert(self, vert, vertSource, bounds) :
 		"""	Calculate the projection of a single vert (also sets the vert.co)
 		vert:		Vert being updated
 		vertSource:	Vert in the "projection basis", unpoluted from any changes.
 		bounds:		The projection target data
 		"""
-		
+
 		#Find the uv coordinates by comparing the vertex position to the mesh bounds.
 		#The relation is then compared to the uv map target
 		uv = bounds.calcUVPoint(vertSource.co)
@@ -242,8 +242,8 @@ class ProjectionData :
 				return (False, False)
 			vert.co = calcVertProjPointClamp(face, uvw, uv.z * Setting.scalar.z)
 			return (True, False)
-	
-	
+
+
 	#Find the bounds of a specified mesh
 	def calculateBounds(self, mesh, alignedAxis, meshPos, meshName) :
 		"""
@@ -256,9 +256,9 @@ class ProjectionData :
 		#Min/Max box of the mesh
 		(vMin, vMax) = findMinMax(mesh)
 		center = (vMax - vMin) * 0.5 + vMin
-		
-				
-		#Calculate the corners of the mesh in the basis aligned with view rotation (note* inverted Z). 
+
+
+		#Calculate the corners of the mesh in the basis aligned with view rotation (note* inverted Z).
 		#Currently the points will be slightly distorted, as the mesh on screen is not algined with camera (A axis alignment is applied)
 		#To fix this the rotation difference between camera and mesh origin could be applied to the min/max projection points (not bounds!)
 		#Note* only orthographic support for now
@@ -267,14 +267,14 @@ class ProjectionData :
 		corners.append(vMax.x * alignedAxis.col[0] + vMax.y * alignedAxis.col[1] + meshPos)	#topR
 		corners.append(vMax.x * alignedAxis.col[0] + vMin.y * alignedAxis.col[1] + meshPos)	#botR
 		corners.append(vMin.x * alignedAxis.col[0] + vMin.y * alignedAxis.col[1] + meshPos)	#botL
-		
+
 		#Project center point onto target and calculate the texture coordinates of the intersection point:
 		(cFace, dist, uvw) = self.ray_cast_target(meshPos)
 		if cFace == None :
 			self.warning.report({'WARNING'}, "Mesh: %s center point did not project onto the target" %(meshName))
 			return None
 		centerTex = averageTexCoord(cFace, uvw, self.uv_lay)
-		
+
 		#Project the corners onto target uvmap and get texcoord min/max bounds the mesh will be projected between:
 		for i in range(len(corners)):
 			#Tries to find a projection onto the target mesh for a corner
@@ -287,7 +287,7 @@ class ProjectionData :
 		if bound is None:
 			self.warning.report({'WARNING'}, "Mesh: %s projection target area is 0, verify the uv map and that the mesh is projected onto the target object" %(meshName))
 		return bound
-	
+
 	def getCameraAxis(self, target_co) :
 		"""	Calculates the projection ray direction
 		"""
@@ -297,14 +297,14 @@ class ProjectionData :
 			dir = target_co - self.cameraPos
 			dir.normalize()
 			return dir
-	
+
 	def traceUVTarget(self, corner, centerPos, centerTex) :
 		"""
 		Function tracing rays from positions between the mesh corner and it's center to
 		find the uv map relation the corner should be projected onto.
 		The function starts by tracing at the corner and if failed, it continues to trace at
 		the halfway mesh center halway point.
-		If a trace is successfull and is not first, the relation between the found uv coordinates, 
+		If a trace is successfull and is not first, the relation between the found uv coordinates,
 		"halway" and center point is assumed equal to the scalar applied to the mesh halfway point
 		corner:		One of the mesh corners to trace from
 		centerPos:	The center position of the mesh
@@ -321,7 +321,7 @@ class ProjectionData :
 				return (tex - centerTex) / mult + centerTex
 		return None
 def calcVertProjPoint(face, uvw, depth) :
-	"""	
+	"""
 	Calculate the resulting projection point of a vertice being projected onto a face with the barycentric weights
 	face:	The face containing the triangle information
 	uvw:	The barycentric weights, defining how much each tri corner influences the vertex
@@ -334,7 +334,7 @@ def calcVertProjPoint(face, uvw, depth) :
 	else :
 		return co + face.normal * depth
 def calcVertProjPointClamp(face, uvw, depth) :
-	"""	
+	"""
 	Calculate the resulting projection point of a vertice being projected onto a face with the barycentric weights
 	face:	The face containing the triangle information
 	uvw:	The barycentric weights, defining how much each tri corner influences the vertex
@@ -357,7 +357,7 @@ def zUpFindAxis(meshAxis, camAxis) :
 	xDot = meshAxis.col[0].dot(camAxis.col[2])
 	yDot = meshAxis.col[1].dot(camAxis.col[2])
 	zDot = meshAxis.col[2].dot(camAxis.col[2])
-	
+
 	ret = meshAxis.copy()
 	if abs(xDot) > max(abs(yDot), abs(zDot)) :
 		#X axis faces camera, set X to Z axis
@@ -373,5 +373,3 @@ def zUpFindAxis(meshAxis, camAxis) :
 		ret.col[1] = meshAxis.col[1]
 	ret.col[2] = meshAxis.col[0].cross(meshAxis.col[1])
 	return ret
-	
-	

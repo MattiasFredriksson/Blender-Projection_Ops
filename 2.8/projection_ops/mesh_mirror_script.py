@@ -101,7 +101,7 @@ class MirrorMesh(bpy.types.Operator):
 		tmod = ob_act.modifiers.new(name='tmpTriangulate', type='TRIANGULATE')
 		tmod.quad_method = 'BEAUTY'
 		#Create a bmesh with the modifiers applied and vertices in world space !
-		mMesh = createBmesh(ob_act, ob_act.matrix_world, False, context.scene, True)
+		mMesh = createBmesh(ob_act, ob_act.matrix_world, False, context.evaluated_depsgraph_get(), True)
 		#Clear tmp modifier
 		ob_act.modifiers.remove(tmod)
 		#List of mirror object generated:
@@ -116,9 +116,10 @@ class MirrorMesh(bpy.types.Operator):
 				#Mirror it rawr
 				nonMCount = MirrorMesh.mirrorMesh(mesh, mMesh)
 
-				#Create a copy only if the mesh has mirrored vertices
+				# Create a copy only if parts of the mesh was mirrored successfully
+				# (i.e. atleast one vertex were mirrored)
 				if nonMCount < len(mesh.verts) :
-					#Cleanup, move it back into it's local space, flip the inverted normals.
+					#Cleanup, move it back into it's local space, flip inverted normals.
 					mInv = ob.matrix_world.copy()
 					mInv.invert()
 					mesh.transform(mInv)
@@ -135,9 +136,9 @@ class MirrorMesh(bpy.types.Operator):
 					self.report({'WARNING'}, "Mesh: %s does not intersect the mirror mesh, no mirror created" %ob.name)
 				# Free the bm data.
 				mesh.free()
-		#Re-Select
+		#Reselect
 		for ob in generated_mirrors :
-			ob.select = True
+			ob.select_set(True)
 		#
 		mMesh.free()
 		if MirrorMesh.displayExecutionTime :

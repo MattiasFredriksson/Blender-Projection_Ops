@@ -97,26 +97,26 @@ class AlignSelection(bpy.types.Operator):
 		meshRot = meshRot.to_matrix()
 		#Calc rotation
 		if self.rot_type == 'AXISALIGNED' :
-			rot = self.cameraRot * axisAlignRotationMatrix(self.cameraRotInv * meshRot)
+			rot = self.cameraRot @ axisAlignRotationMatrix(self.cameraRotInv @ meshRot)
 		#Axis alignements: Axis Rot is rotated with the objects rotation difference on the plane parallell to cameras XY plane,
 		#This generates the rotation in the cameras rotation space (camera rotation is applied last).
 		elif self.rot_type == 'Z' :
 			rot = Matrix.Identity(3) #Mesh face inverse camera
-			rot = calculateRotXYPlane_baseX(meshRot,self.cameraRot) * rot #Find rotation difference on XY plane
-			rot = self.cameraRot * rot #Rotate to camera space
+			rot = calculateRotXYPlane_baseX(meshRot,self.cameraRot) @ rot #Find rotation difference on XY plane
+			rot = self.cameraRot @ rot #Rotate to camera space
 		elif self.rot_type == 'Y' :
 			#Find rotation difference to camera, could use quats and rotation_difference(quat)
 			rot = Matrix.Rotation(half_pi, 3, Vector((1,0,0))) #Rotate Y facing upward
-			rot = calculateRotXYPlane_baseX(meshRot, self.cameraRot) * rot #Find rotation difference on ZX plane
-			rot = self.cameraRot * rot #Move rotation to camera space
+			rot = calculateRotXYPlane_baseX(meshRot, self.cameraRot) @ rot #Find rotation difference on ZX plane
+			rot = self.cameraRot @ rot #Move rotation to camera space
 		elif self.rot_type == 'X' :
 			rot =  Matrix.Rotation(-half_pi, 3, Vector((0,1,0))) #Rotate X facing up
-			rot = calculateRotXYPlane_baseY(meshRot, self.cameraRot) * rot #Find rotation difference on YZ plane
-			rot = self.cameraRot * rot #Move rotation to camera space
+			rot = calculateRotXYPlane_baseY(meshRot, self.cameraRot) @ rot #Find rotation difference on YZ plane
+			rot = self.cameraRot @ rot #Move rotation to camera space
 		else : # self.rot_type == 'CLOSEST' :
-			rot = self.cameraRot * alignRotationMatrix(self.cameraRotInv * meshRot)
+			rot = self.cameraRot @ alignRotationMatrix(self.cameraRotInv @ meshRot)
 		#Assemble orientation matrix:
-		return Matrix.Translation(loc) * (rot * scaleMatrix(sca, 3)).to_4x4()
+		return Matrix.Translation(loc) @ (rot @ scaleMatrix(sca, 3)).to_4x4()
 
 	def orientation(self, object, parent_world_inv, parent_mat) :
 		"""
@@ -125,7 +125,7 @@ class AlignSelection(bpy.types.Operator):
 		parent_world_inv:	Parent objects world matrix inverse
 		parent_mat:			Calculated final transform for parent object
 		"""
-		return parent_mat * parent_world_inv * object.matrix_world
+		return parent_mat @ parent_world_inv @ object.matrix_world
 
 
 	def findParent(self, context, ob_list) :
@@ -138,8 +138,8 @@ class AlignSelection(bpy.types.Operator):
 		#Parent: Obj with most vertices
 		if self.parent_obj == 'VERTCOUNT' :
 			for ob in ob_list :
-				if len(ob.data.verts) > value :
-					value = len(ob.bmesh.vertices)
+				if len(ob.data.vertices) > value :
+					value = len(ob.data.vertices)
 					parent_ob = ob
 		#Parent:Active
 		elif self.parent_obj == 'ACTIVE' and not self.exclude_active and context.active_object is not None:

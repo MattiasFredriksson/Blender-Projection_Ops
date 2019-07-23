@@ -103,7 +103,7 @@ class ProjectMesh(bpy.types.Operator):
 				self.report({'ERROR'}, "No selection to project found, make sure to select one source mesh object and an active mesh object as projection target")
 			return {'CANCELLED'}
 		#Generate projection info
-		bvh = generate_BVH(target_ob, context.scene, self.bias)
+		bvh = generate_BVH(target_ob, context.evaluated_depsgraph_get(), self.bias)
 		self.target_ob = target_ob.name
 
 		#Generate project data
