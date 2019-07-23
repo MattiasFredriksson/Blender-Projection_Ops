@@ -126,7 +126,7 @@ class MirrorMesh(bpy.types.Operator):
 					flipNormals(mesh)
 
 					#Copy it into a new object!
-					mirrorOb = createEmptyMeshCopy(ob, context,"_Mirror", "_MirrorMesh")
+					mirrorOb = copyMeshObject(ob, context, "_Mirror", "_MirrorMesh")
 					# Set the mesh into the object
 					mesh.to_mesh(mirrorOb.data)
 					generated_mirrors.append(mirrorOb)
@@ -136,8 +136,9 @@ class MirrorMesh(bpy.types.Operator):
 					self.report({'WARNING'}, "Mesh: %s does not intersect the mirror mesh, no mirror created" %ob.name)
 				# Free the bm data.
 				mesh.free()
-		#Reselect
-		for ob in generated_mirrors :
+		# Leave only generated objects selected
+		bpy.ops.object.select_all(action='DESELECT')
+		for ob in generated_mirrors:
 			ob.select_set(True)
 		#
 		mMesh.free()

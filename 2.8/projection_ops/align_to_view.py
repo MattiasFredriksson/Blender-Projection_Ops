@@ -20,6 +20,8 @@
 
 import bpy, sys
 
+
+
 from math import *
 from mathutils import *
 from .funcs_math import *
@@ -62,7 +64,6 @@ class AlignSelection(bpy.types.Operator):
 		return self.execute(context)
 
 	def execute(self, context):
-
 		#Fetch camera orientations:
 		self.cameraRot = findViewRotation(context)
 		self.cameraRotInv = self.cameraRot.transposed()

@@ -30,7 +30,7 @@ bl_info = {
 	'tracker_url': "",
 	'category': 'Mesh'}
 
-import sys
+import sys, bpy, traceback
 def force_reload():
 	import importlib
 	try:
@@ -48,48 +48,33 @@ def force_reload():
 		importlib.reload(plane)
 		importlib.reload(axis_align)
 	except:
-		print('Error:', sys.exc_info())
+		print('Reloading all package modules failed with error:')
+		traceback.print_exc()
 #end force_reload()
-def reload():
-	#Script reloading
-	if "bpy" in locals():
-		force_reload()
-	#Script loading
-	else:
-		try:
-			from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
-		except:
-			print('Error:', sys.exc_info())
-#end reload()
-reload()
+
+#Script reloading
+if "bpy" in locals():
+	force_reload()
+
+from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
 
 
-try:
-	import bpy
-	from .uv_project import UVProjectMesh
-	from .project import ProjectMesh
-	from .mesh_mirror_script import MirrorMesh
-	from .align_to_view import AlignSelection
-except:
-	print('Error:', sys.exc_info())
 
-
+operators = [uv_project.UVProjectMesh, project.ProjectMesh, mesh_mirror_script.MirrorMesh, align_to_view.AlignSelection]
 
 # Register the operator
 def register():
-	pass
-	bpy.utils.register_class(UVProjectMesh)
-	bpy.utils.register_class(ProjectMesh)
-	bpy.utils.register_class(MirrorMesh)
-	bpy.utils.register_class(AlignSelection)
-
+	for op in operators:
+		bpy.utils.register_class(op)
+#end register()
 def unregister():
-	pass
-	bpy.utils.unregister_class(UVProjectMesh)
-	bpy.utils.unregister_class(ProjectMesh)
-	bpy.utils.unregister_class(MirrorMesh)
-	bpy.utils.unregister_class(AlignSelection)
-
+	# Try to unregister all operators
+	for op in operators:
+		# Only thing left to test
+		if hasattr(bpy.types, op.bl_idname):
+			bpy.utils.unregister_class(op)
+	#efor
+#end unregister()
 
 
 if __name__ == "__main__":

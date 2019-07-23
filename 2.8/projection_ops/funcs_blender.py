@@ -128,9 +128,43 @@ def createBmesh(ob = None, matrix = None, triangulate = False, depsgraph = None,
 		bm.faces.ensure_lookup_table()
 
 	return bm
+def copyMeshObject(ob, context, obTag = "_Copy", meshTag = "_CopyMesh"):
+	"""
+	Create a new mesh object by copying the specified object. If input object is not a mesh a
+	"""
+	if ob.type != 'MESH':
+		print("Warning in copyMeshObject()! Object %s is not a mesh but of type %s, an empty mesh object was returned rather then a copy." %(ob.name, str(ob.type)))
+		newOb = createEmptyMesh(ob, context, obTag, meshTag)
+		# Copy the object's transformation matrix
+		newOb.matrix_world = ob.matrix_world
+		return newOb
+	# Create a copy of the mesh object
+	newOb = ob.copy()
+	newOb.name = ob.name + obTag
+	newOb.data = ob.data.copy()
+	newOb.data.name = ob.name + meshTag
+	# Link object to the scene
+	if context is not None:
+		context.scene.collection.objects.link(newOb)
+	return newOb
+#end copyObject()
+def createEmptyMesh(name, context, obTag, meshTag):
+	"""
+	Function creating an empty mesh object.
+	"""
+	if isinstance(name, str):
+		mesh = bpy.data.meshes.new(ob.name + meshTag) 		# create a new mesh with the name
+		newOb = bpy.data.objects.new(ob.name + obTag, mesh)	# create an object with that mesh
+	elif isinstance(name, bpy.types.Object):
+		mesh = bpy.data.meshes.new(ob.name + meshTag) 		# create a new mesh with the name
+		newOb = bpy.data.objects.new(ob.name + obTag, mesh)	# create an object with that mesh
+	else:
+		raise Exception('Name parameter was of unknown type: ' + type(name))
+	return newOb
 def createEmptyMeshCopy(ob, context, obTag = "_Copy", meshTag = "_CopyMesh", copyTransform = True):
 	"""
-	Create a clean empty copy of the mesh object, creating a copy without that only retain modifier params.
+	DEPRECATED.
+	Create a clean empty copy of the mesh object, creating a copy ONLY RETAINING MODIFIER PARAMS.
 	ob:				Object to copy
 	context:		Context the object is linked to (visible)
 	obTag:			String appended to the name of the copied object.
@@ -140,12 +174,9 @@ def createEmptyMeshCopy(ob, context, obTag = "_Copy", meshTag = "_CopyMesh", cop
 	"""
 
 	#Creates a copy of a mesh with relevant data, if the object is not a mesh an empty mesh will be returned.
-
-	mesh = bpy.data.meshes.new(ob.name + meshTag) 		# create a new mesh with the name
-	newOb = bpy.data.objects.new(ob.name + obTag, mesh)	# create an object with that mesh
+	newOb = createEmptyMesh(ob.name, obTag, meshTag)
 	if	copyTransform :
 		newOb.matrix_world = ob.matrix_world			# Copy the object's transformation matrix
-
 	#If object is not a mesh return the empty
 	if ob.type != 'MESH':
 		return newOb
