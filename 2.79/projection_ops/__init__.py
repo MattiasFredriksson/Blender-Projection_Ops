@@ -22,44 +22,42 @@ bl_info = {
 	'name': "Projection Operators",
     'author': "Mattias Fredriksson ",
     'version': (0, 9, 3),
-    'blender': (2, 77, 0),
+    'blender': (2, 79, 0),
     'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active, Align Selection to View",
-    'warning': "Bugs can exist, beware of using operators outside the usecase",
-    'description': "4 Operators containing functionality for mirroring and projection mesh objects over/onto a mesh surface",
+    'warning': "",
+    'description': "4 Operators containing functionality for mirroring and projecting mesh objects relative to a surface mesh",
     'wiki_url': "",
-    'tracker_url': "",
+    'tracker_url': "https://github.com/MattiasFredriksson/Blender-Projection_Ops/issues",
     'category': 'Mesh'}
-	
+
+#Script reloading
+import traceback
+def force_reload():
+	import importlib
+	try:
+		from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
+		importlib.reload(funcs_blender)
+		importlib.reload(funcs_math)
+		importlib.reload(funcs_tri)
+		importlib.reload(proj_data)
+		importlib.reload(bound)
+		importlib.reload(partition_grid)
+		importlib.reload(uv_project)
+		importlib.reload(project)
+		importlib.reload(mesh_mirror_script)
+		importlib.reload(align_to_view)
+		importlib.reload(plane)
+		importlib.reload(axis_align)
+	except:
+		print('Reloading all package modules failed with error:')
+		traceback.print_exc()
+#end force_reload()
+
 #Script reloading
 if "bpy" in locals():
-    import importlib
-    if "funcs_blender" in locals():
-        importlib.reload(funcs_blender)
-    if "funcs_math" in locals():
-        importlib.reload(funcs_math)
-    if "funcs_tri" in locals():
-        importlib.reload(funcs_tri)
-    if "proj_data" in locals():
-        importlib.reload(proj_data)
-    if "bound" in locals():
-        importlib.reload(bound)
-    if "partition_grid" in locals():
-        importlib.reload(partition_grid)
-    if "uv_project" in locals():
-        importlib.reload(uv_project)
-    if "project" in locals():
-        importlib.reload(project)
-    if "mesh_mirror_script" in locals():
-        importlib.reload(mesh_mirror_script)
-    if "align_to_view" in locals():
-        importlib.reload(align_to_view)
-    if "plane" in locals():
-        importlib.reload(plane)
-    if "axis_align" in locals():
-        importlib.reload(axis_align)
-#Script loading
-else:
-    from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
+	force_reload()
+
+from . import funcs_blender, funcs_math, funcs_tri, proj_data, bound, partition_grid, uv_project, project, mesh_mirror_script, align_to_view, plane, axis_align
 
 
 import bpy
@@ -69,7 +67,7 @@ from .project import ProjectMesh
 from .mesh_mirror_script import MirrorMesh
 from .align_to_view import AlignSelection
 
-	
+
 
 # Register the operator
 def register():
