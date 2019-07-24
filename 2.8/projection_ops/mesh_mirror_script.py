@@ -63,13 +63,13 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 	displayExecutionTime = False
 
 	def execute(self, context):
-		MirrorMesh.bias = self.biasValue
-		MirrorMesh.biasOne = 1 + self.biasValue
-		MirrorMesh.biasNeg = -self.biasValue
-		MirrorMesh.smoothed = self.mirrorSmooth
-		MirrorMesh.cull = self.cullBackfaces
-		MirrorMesh.closestOnly = self.intersectClosest
-		MirrorMesh.onlyIntersecting = self.onlyIntersectingVert
+		MESH_OT_MirrorMesh.bias = self.biasValue
+		MESH_OT_MirrorMesh.biasOne = 1 + self.biasValue
+		MESH_OT_MirrorMesh.biasNeg = -self.biasValue
+		MESH_OT_MirrorMesh.smoothed = self.mirrorSmooth
+		MESH_OT_MirrorMesh.cull = self.cullBackfaces
+		MESH_OT_MirrorMesh.closestOnly = self.intersectClosest
+		MESH_OT_MirrorMesh.onlyIntersecting = self.onlyIntersectingVert
 		#Execution timer
 		start_time = time.time()
 
@@ -94,7 +94,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 			else :
 				self.report({'ERROR'}, "Not enough mesh objects selected, need a selection of atleast one mesh object and an active object as mirror surface")
 
-		if MirrorMesh.displayExecutionTime :
+		if MESH_OT_MirrorMesh.displayExecutionTime :
 			self.report({'INFO'}, "Executing: mirror_mesh_func")
 
 		#Add a temporary modifier to triangulate the faces!
@@ -114,7 +114,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 				mesh = createBmesh(ob, ob.matrix_world)
 
 				#Mirror it rawr
-				nonMCount = MirrorMesh.mirrorMesh(mesh, mMesh)
+				nonMCount = MESH_OT_MirrorMesh.mirrorMesh(mesh, mMesh)
 
 				# Create a copy only if parts of the mesh was mirrored successfully
 				# (i.e. atleast one vertex were mirrored)
@@ -142,7 +142,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 			ob.select_set(True)
 		#
 		mMesh.free()
-		if MirrorMesh.displayExecutionTime :
+		if MESH_OT_MirrorMesh.displayExecutionTime :
 			self.report({'INFO'}, "Finished, execution time: %.2f seconds ---" % (time.time() - start_time))
 		return {'FINISHED'}
 
@@ -155,16 +155,16 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 		for i in range(len(searchData)):
 			if searchData[i].notMirrored():
 				#loop through every triangle in the mirror mesh and find the closest "triangle plane" that intersects
-				MirrorMesh.findClosestTri(mesh.verts[i], mirrorMesh, searchData)
+				MESH_OT_MirrorMesh.findClosestTri(mesh.verts[i], mirrorMesh, searchData)
 				mData = searchData[i]._mirrorData
 
 				#If we found a intersecting mirror face mirror it!
 				if mData is not None and mData._intersected :
 					#mirror the vertice
-					MirrorMesh.mirrorVert(mesh.verts[i], mData)
+					MESH_OT_MirrorMesh.mirrorVert(mesh.verts[i], mData)
 					#if we do not itterate on every vert, we search closest intersecting in the mirror mesh!
-					if not MirrorMesh.closestOnly :
-						MirrorMesh.mirrorConnected(i, mesh, mirrorMesh, searchData)
+					if not MESH_OT_MirrorMesh.closestOnly :
+						MESH_OT_MirrorMesh.mirrorConnected(i, mesh, mirrorMesh, searchData)
 
 		#We check if some vertices did not get mirrored
 		nonMirrorCount = 0
@@ -173,8 +173,8 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 				nonMirrorCount += 1
 		#If we have closest only we do not check if we have vertices that do not intersect a triangle but are connected to one that is,
 		#if we have one then we mirror it with the same triangle plane! (If the mirror mesh do not cover the mesh properly this will help in this specific mode)
-		if MirrorMesh.closestOnly and not MirrorMesh.onlyIntersecting:
-			MirrorMesh.mirrorNonIntersecting(nonMirrorCount, mesh, mirrorMesh, searchData)
+		if MESH_OT_MirrorMesh.closestOnly and not MESH_OT_MirrorMesh.onlyIntersecting:
+			MESH_OT_MirrorMesh.mirrorNonIntersecting(nonMirrorCount, mesh, mirrorMesh, searchData)
 		#return non-mirrored count
 		return nonMirrorCount
 
@@ -188,11 +188,11 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 		if nonMirrorCount > 0 :
 			for i in range(len(searchData)):
 				if searchData[i].mirrored() :
-					MirrorMesh.mirrorConnected(i, mesh, mirrorMesh, searchData, False)
+					MESH_OT_MirrorMesh.mirrorConnected(i, mesh, mirrorMesh, searchData, False)
 
 	def mirrorVert(vert, mirrorData, forceFlatMirror = False):
 
-		if not MirrorMesh.smoothed or forceFlatMirror :
+		if not MESH_OT_MirrorMesh.smoothed or forceFlatMirror :
 			mVec = mirrorData.calcFlatMirrorVector()
 		else :
 			mVec = mirrorData.calcSmoothMirrorVector()
@@ -207,7 +207,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 		#
 
 		vertQueue = Queue()
-		MirrorMesh.queueConnectedVerts(mesh.verts[initVertInd], searchData, vertQueue)
+		MESH_OT_MirrorMesh.queueConnectedVerts(mesh.verts[initVertInd], searchData, vertQueue)
 
 		while not vertQueue.empty() :
 			vert = vertQueue.get_nowait()
@@ -226,21 +226,21 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 
 				if intersectionTest :
 					#Check for the first face we intersect (from our last intersecting face)
-					MirrorMesh.findFirstTri(vert, lastMData._mirrorTri, mirrorMesh, searchData)
+					MESH_OT_MirrorMesh.findFirstTri(vert, lastMData._mirrorTri, mirrorMesh, searchData)
 					mData = searchData[i]._mirrorData
 
 				if mData is not None and mData._intersected :
-					MirrorMesh.mirrorVert(vert, mData)
+					MESH_OT_MirrorMesh.mirrorVert(vert, mData)
 					#Queue all connected vertices!
-					MirrorMesh.queueConnectedVerts(vert, searchData, vertQueue)
-				elif not MirrorMesh.onlyIntersecting :
+					MESH_OT_MirrorMesh.queueConnectedVerts(vert, searchData, vertQueue)
+				elif not MESH_OT_MirrorMesh.onlyIntersecting :
 					#If no intersection we mirror along the last mirror face plane
-					MirrorMesh.findDistance(vert, lastMData._mirrorTri, searchData)
+					MESH_OT_MirrorMesh.findDistance(vert, lastMData._mirrorTri, searchData)
 					mData = searchData[i]._mirrorData
 					#MirrorFlat
-					MirrorMesh.mirrorVert(vert, mData, True)
+					MESH_OT_MirrorMesh.mirrorVert(vert, mData, True)
 					#Queue all connected vertices!
-					MirrorMesh.queueConnectedVerts(vert, searchData, vertQueue)
+					MESH_OT_MirrorMesh.queueConnectedVerts(vert, searchData, vertQueue)
 
 
 	def findFirstTri(vert, lastMFace, mirrorMesh, searchData) :
@@ -259,12 +259,12 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 
 		while not faceQueue.empty() :
 			face = faceQueue.get_nowait()
-			mDat = MirrorMesh.triIntersection(vert.co, face)
+			mDat = MESH_OT_MirrorMesh.triIntersection(vert.co, face)
 			if mDat is not None and mDat._intersected :
 				searchData[vert.index].setMirror(mDat)
 				break #we found an intersecting tri
 			#Queue connected faces
-			MirrorMesh.queueConnectedFaces(face, mirrorMesh, faceQueue, taggedFaces)
+			MESH_OT_MirrorMesh.queueConnectedFaces(face, mirrorMesh, faceQueue, taggedFaces)
 
 		for f in taggedFaces :
 			f.tag = False
@@ -276,7 +276,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 
 		#Searches trough each triangle face in the mirror mesh to find the closest plane where the triangle intersects and updates the search data with it!
 		for tri in mirrorMesh.faces :
-			mDat = MirrorMesh.triIntersection(vert.co, tri)
+			mDat = MESH_OT_MirrorMesh.triIntersection(vert.co, tri)
 			if mDat is not None and mDat._intersected :
 				searchData[vert.index].setClosestMirror(mDat)
 
@@ -292,7 +292,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 		t = mTri.normal.dot(vertCo-mTri.verts[0].co)
 
 		#If we dont mirror verts behind the face
-		if MirrorMesh.cull and t < 0 :
+		if MESH_OT_MirrorMesh.cull and t < 0 :
 			return None
 
 		#We find the three points along the normal of the triangle vertices which spans the plane which our vertice is contained in
@@ -315,7 +315,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 		v = (d11 * d20 - d01 * d21) * invDenom
 		w = (d00 * d21 - d01 * d20) * invDenom
 		u = 1.0 - v - w
-		return MirrorData(mTri, u > MirrorMesh.biasNeg and v > MirrorMesh.biasNeg and w > MirrorMesh.biasNeg, t, u,v,w)
+		return MirrorData(mTri, u > MESH_OT_MirrorMesh.biasNeg and v > MESH_OT_MirrorMesh.biasNeg and w > MESH_OT_MirrorMesh.biasNeg, t, u,v,w)
 
 	def queueConnectedVerts(vert, searchData, queue) :
 

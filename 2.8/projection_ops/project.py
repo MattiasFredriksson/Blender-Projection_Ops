@@ -113,7 +113,7 @@ class MESH_OT_ProjectMesh(bpy.types.Operator):
 			else :
 				ob.projectVertPersp(self.cameraPos, bvh)
 
-		if ProjectMesh.displayExecutionTime :
+		if MESH_OT_ProjectMesh.displayExecutionTime :
 			self.report({'INFO'}, "Finished, invoke stage execution time: %.2f seconds ---" % (time.time() - start_time))
 		return self.execute(context)
 
@@ -131,7 +131,7 @@ class MESH_OT_ProjectMesh(bpy.types.Operator):
 			#Project the meshes with the gathered information
 			self.project(context.scene)
 			#Finished
-			if ProjectMesh.displayExecutionTime :
+			if MESH_OT_ProjectMesh.displayExecutionTime :
 				self.report({'INFO'}, "Finished, project stage execution time: %.2f seconds ---" % (time.time() - start_time))
 		#Set offset move it on camera forward axis:
 		self.depthChange(context.scene)
