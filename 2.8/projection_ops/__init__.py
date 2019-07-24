@@ -24,7 +24,6 @@ bl_info = {
 	'version': (0, 9, 4),
 	'blender': (2, 80, 0),
 	'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active, Align Selection to View",
-	'warning': "In the case of experiencing bugs, report it to the tracker.",
 	'description': "4 Operators containing functionality for mirroring and projecting mesh objects relative to a surface mesh.",
 	'wiki_url': "",
 	'tracker_url': "https://github.com/MattiasFredriksson/Blender-Projection_Ops/issues",
