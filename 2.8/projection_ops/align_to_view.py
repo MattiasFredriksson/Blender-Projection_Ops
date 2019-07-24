@@ -59,6 +59,10 @@ class AlignSelection(bpy.types.Operator):
             description="Exclude the active object from selection, and disallows it from parenting the selection (usefull if it's a projection target selection)",
 			default=False)
 
+	def __init__(self):
+		return
+	def __del__(self):
+		return
 	def invoke(self, context, event) :
 
 		return self.execute(context)
