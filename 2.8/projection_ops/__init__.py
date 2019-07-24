@@ -22,8 +22,8 @@ bl_info = {
 	'name': "Projection Operators",
 	'author': "Mattias Fredriksson ",
 	'version': (0, 9, 4),
-	'blender': (2, 8, 0),
-	'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active, Align Selection to View.",
+	'blender': (2, 80, 0),
+	'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active, Align Selection to View",
 	'warning': "In the case of experiencing bugs, report it to the tracker.",
 	'description': "4 Operators containing functionality for mirroring and projecting mesh objects relative to a surface mesh.",
 	'wiki_url': "",
@@ -111,7 +111,7 @@ load_modules()
 #######################
 
 # List of operator classes in the package
-operators = [uv_project.UVProjectMesh, project.ProjectMesh, mesh_mirror_script.MirrorMesh, align_to_view.AlignSelection]
+operators = [uv_project.MESH_OT_UVProjectMesh, project.MESH_OT_ProjectMesh, mesh_mirror_script.MESH_OT_MirrorMesh, align_to_view.MESH_OT_AlignSelection]
 
 # Register the operator
 def register():

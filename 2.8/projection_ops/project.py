@@ -27,7 +27,7 @@ from .plane import *
 from bpy.props import * #Property objects
 
 
-class ProjectMesh(bpy.types.Operator):
+class MESH_OT_ProjectMesh(bpy.types.Operator):
 	bl_idname = "mesh.project_onto_selected_mesh"
 	bl_label = "Project Mesh(es) onto Active"
 	bl_info = "Projects selected mesh(es) onto the active selected mesh"

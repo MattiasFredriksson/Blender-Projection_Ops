@@ -28,8 +28,8 @@ from math import *
 
 largeFloat = 10000000
 
-class MirrorMesh(bpy.types.Operator):
-	bl_idname = "mesh.mirror_mesh_along_mirrormesh_normals"
+class MESH_OT_MirrorMesh(bpy.types.Operator):
+	bl_idname = "mesh.mirror_mesh_along_normals"
 	bl_label = "Mirror Mesh over Defined Surface"
 	bl_info = "Mirrors selected mesh(es) along the surface normals of the active mesh"
 	bl_options = {'REGISTER', 'UNDO'}

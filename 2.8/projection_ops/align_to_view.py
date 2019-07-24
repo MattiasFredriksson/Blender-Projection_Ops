@@ -28,7 +28,7 @@ from .funcs_math import *
 from .funcs_blender import *
 from .axis_align import *
 from bpy.props import * #Property objects
-class AlignSelection(bpy.types.Operator):
+class MESH_OT_AlignSelection(bpy.types.Operator):
 	bl_idname = "mesh.align_selection_view"
 	bl_label = "Align Selection to View"
 	bl_info = "Aligns the mesh rotation to the current view"

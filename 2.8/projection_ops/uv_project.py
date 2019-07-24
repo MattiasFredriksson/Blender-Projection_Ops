@@ -23,7 +23,7 @@ from .proj_data import *
 from .funcs_blender import *
 from bpy.props import * #Property objects
 
-class UVProjectMesh(bpy.types.Operator):
+class MESH_OT_UVProjectMesh(bpy.types.Operator):
 	bl_idname = "mesh.project_onto_uvmapped_mesh"
 	bl_label = "Project Mesh onto UV Surface"
 	bl_info = "Projects a selected mesh object(s) onto the surface of the active mesh, fitting the mesh over the uvmap of the target"
