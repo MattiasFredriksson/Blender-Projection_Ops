@@ -21,13 +21,13 @@
 bl_info = {
 	'name': "Projection Operators",
 	'author': "Mattias Fredriksson ",
-	'version': (0, 9, 3),
-	'blender': (2, 77, 0),
-	'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active, Align Selection to View",
-	'warning': "",
-	'description': "4 Operators containing functionality for mirroring and projection mesh objects over/onto a mesh surface",
+	'version': (0, 9, 4),
+	'blender': (2, 8, 0),
+	'location': "3DView > Objectmode: Project Mesh onto UV Surface, Mirror Mesh over Defined Surface, Project Mesh(es) onto Active, Align Selection to View.",
+	'warning': "In the case of experiencing bugs, report it to the tracker.",
+	'description': "4 Operators containing functionality for mirroring and projecting mesh objects relative to a surface mesh.",
 	'wiki_url': "",
-	'tracker_url': "",
+	'tracker_url': "https://github.com/MattiasFredriksson/Blender-Projection_Ops/issues",
 	'category': 'Mesh'}
 
 import sys, bpy, traceback, glob, importlib
