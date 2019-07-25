@@ -36,16 +36,16 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
 
 
 	mirrorSmooth: BoolProperty(name = "Smoothed",
-            description="If the vertices will be mirrored smoothly over the mirror face or if it will be continous",
+            description="If vertices will be mirrored smoothly over the mirror surface, if un-checked each vertex will be reflected over the plane defined by the face used to mirror it in the mirror surface.",
 			default=True)
 	cullBackfaces: BoolProperty(name = "No Backface Intersection",
-            description="Vertices is not mirrored on faces facing away from the vertice",
+            description="Vertices will no longer be reflected along face normals directed (facing) away from the vertex.",
 			default=False)
 	onlyIntersectingVert: BoolProperty(name = "Intersecting verts only",
-            description="Mirror only verts that intersect the mirror mesh",
+            description="Mirror only vertices intersecting the mirror mesh. Vertices must project inside the area of triangulated faces.",
 			default=True)
 	intersectClosest: BoolProperty(name = "(Expensive) Closest Intersection",
-            description="Forces mirroring of each vertice for the closest face they intersect, might solve problems of two faces intersecting a vertice. May not function as expected as it's not the intended use of the script. Slow on dense meshes.",
+            description="Force each vertex to be mirrored on the closest intersecting face, can solve problems where a vertex can be projected over multiple faces. The closest face will be selected at the cost of not using an acceleration algorithm.",
 			default=False)
 	biasValue: FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",

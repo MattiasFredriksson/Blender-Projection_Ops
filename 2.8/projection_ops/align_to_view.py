@@ -53,7 +53,7 @@ class MESH_OT_AlignSelection(bpy.types.Operator):
 			default = 'CLOSEST',)
 	parent_obj : EnumProperty(items=parent_obj_enum,
 			name = "Selection Parent",
-            description="Determines which selected object that the other objects alignment will relate to",
+            description="Method for determining the selected object that will be treated as the parent object.",
 			default = 'ACTIVE',)
 	exclude_active : BoolProperty(name = "Exclude active object",
             description="Exclude the active object from selection, and disallows it from parenting the selection (usefull if it's a projection target selection)",
