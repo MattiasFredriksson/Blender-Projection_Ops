@@ -45,7 +45,7 @@ class MESH_OT_MirrorMesh(bpy.types.Operator):
             description="Mirror only vertices intersecting the mirror mesh. A vertex must project inside the area of triangulated face or will otherwise remain at it's current position",
 			default=True)
 	intersectClosest: BoolProperty(name = "(Expensive) Closest Intersection",
-            description="Force each vertex to be mirrored on the closest intersecting face, can solve problems where vertex projections intersect multiple faces. The closest face will be selected at the cost of not using acceleration algorithms",
+            description="Force each vertex to be mirrored on the closest intersecting face, the option can solve problems where vertex projections intersect multiple faces. Closest face will be selected at the cost of not using acceleration algorithms",
 			default=False)
 	biasValue: FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
