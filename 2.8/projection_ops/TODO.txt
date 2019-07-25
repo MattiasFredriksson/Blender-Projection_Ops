@@ -1,6 +1,8 @@
 Changelog/Todo
 Guide: # -> function/related to, x -> complete, - -> todo, o -> idea/maybe not
 
+o Clip edges option for project functions and mirror
+
 #Project mesh(es) onto active:
 
 x Extend project to active to individual objects.
