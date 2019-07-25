@@ -37,39 +37,36 @@ class MESH_OT_UVProjectMesh(bpy.types.Operator):
 
 	proj_type: EnumProperty(items=proj_type_enum,
 			name = "Surface Alignment",
-            description="Determines how the mesh will be aligned on the surface. Alignment primarily defines the mesh axis \
-			pointing up/away from the surface. It also affects how the mesh will be rotated around the axis and how the target \
-			area is determined for the projection.",)
+            description="Determines how the mesh will be aligned on the surface. Alignment primarily defines the mesh axis pointing up/away from the surface. It also affects how the mesh will be rotated around the axis and how the target area is determined for the projection",)
 	smooth: BoolProperty(name = "Smooth",
-            description="If the mesh placed on the surface will be smoothed around edges.",
+            description="If the mesh placed on the surface will be smoothly bent around edges",
 			default=True)
 	keepRelative: BoolProperty(name = "Keep Relative Scale",
-            description="Scales the surface mapping to the same size ratio of the projected mesh.",
+            description="Scales the surface mapping to the same size ratio of the projected mesh",
 			default=False)
 	scalar: FloatProperty(name="Scale",
-            description="Scale the projected mesh (and the mapped UV area) on the surface.",
+            description="Scale the projected mesh (and the mapped UV area) on the surface",
             default=1,  soft_min= 0.01, soft_max=10, step=2, precision=2)
 	depthAdd: FloatProperty(name="Surface Offset",
-            description="Move the projection closer/away from target surface by a fixed amount.",
+            description="Move the projection closer/away from target surface by a fixed amount",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
 	moveXY: FloatVectorProperty(name="Move",
-			description="Move the mesh over the surface by moving the mapped UV area along the UV coordinates.",
+			description="Move the mesh over the surface by moving the mapped UV area along the UV coordinates",
 			default=(0.0, 0.0), size=2, step=1, precision=4)
 	rotation:  FloatProperty(name="Rotate",
-            description="Rotate the mesh on the surface by rotating the mapped UV area.",
+            description="Rotate the mesh on the surface by rotating the mapped UV area",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=8)
 	scalarXYZ: FloatVectorProperty(name="Scale Separated",
-			description="Scale each X,Y surface mapping component separately or scale mesh Z axis.",
+			description="Scale each X,Y surface mapping component separately or scale mesh Z axis",
 			default=(1.0, 1.0, 1.0), soft_min= 0.01, soft_max=10, size=3, step=2)
 	partitions_per_face: FloatProperty(name="Partitions per face",
-            description="Higher value increases invoke stage but execute (updates) runs faster. Higher value \
-			increases the numbers of partitions the uv map will be divided in.",
+            description="Higher value increases invoke stage but execute (updates) runs faster. Higher value increases the numbers of partitions the uv map will be divided in",
             default=0.5, min=0.1, max=20, step=100)
 	biasValue: FloatProperty(name="Intersection Bias",
             description="Error marginal for intersection tests, can solve intersection problems",
             default=0.00001, min=0.00001, max=1, step=1)
 	printExecTime: BoolProperty(name = "Print Execution Time",
-            description="Prints execution time to the information panel, mutes warning in the last report panel.",
+            description="Prints execution time to the information panel, mutes warning in the last report panel",
 			default=False)
 
 	def __init__(self):

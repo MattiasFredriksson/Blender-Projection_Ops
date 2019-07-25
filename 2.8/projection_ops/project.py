@@ -50,24 +50,17 @@ class MESH_OT_ProjectMesh(bpy.types.Operator):
 
 	depth_axis: EnumProperty(items=depth_axis_enum,
 			name = "Axis",
-            description="Select the axis for which the distance to the surface will be measured in. \
-			Each vertex will be placed at the same offset, from the surface, as the distance from the \
-			vertex to the furthest vertex on the axis. Using an object's orientation axis is usefull \
-			to better fit to the surface as long vertices are oriented accordingly (specifically if \
-			the object has a 'floor' of coplanar vertices orthogonal to the axis). If multiple mesh \
-			object's are selected the functions for the local axis is related to parent object. ",
+            description="Select the axis defining the distance vertices will be placed from the surface. Each vertex will be placed at the same offset, from the surface, as the distance from the vertex to the furthest vertex on the axis. Using an object's orientation axis is useful to get a better fit on the surface, if vertices are oriented accordingly (the object has a 'floor' of coplanar vertices orthogonal to the axis). If multiple object's are selected, the axis is defined by the parent object",
 			default = 'CLOSEST',)
 	largest_obj: EnumProperty(items=largest_obj_enum,
 			name = "Selection Parent",
-            description="Determines how selected objects relate to each other, if selection should be \
-			projected as a group: select a parent function. Children will then be projected relative to \
-			the parent object determined by the function.",
+            description="Determines how selected objects relate to each other, if selection should be projected as a group, select relevant parent function. Children will be projected relative to the parent object defined by the parent function",
 			default = 'SINGLE',)
 	depthOffset: FloatProperty(name="Surface Offset",
             description="Move the projection closer/away from target surface by a fixed amount (along neg. view forward axis)",
             default=0, min=-sys.float_info.max, max=sys.float_info.max, step=1)
 	bias: FloatProperty(name="Intersection Epsilon",
-            description="Error marginal for intersection tests, can solve intersection problems where vertices are projected through edges.",
+            description="Error marginal for intersection tests, can solve intersection problems where vertices are projected through edges",
             default=0.00001, min=0.00001, max=1, step=1, precision=4)
 
 	def invoke(self, context, event) :
